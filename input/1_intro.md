@@ -1,29 +1,29 @@
-# %chapter_number%. Distributed systems at a high level
+# %chapter_number%. Распределенные системы на высоком уровне
 
-> Distributed programming is the art of solving the same problem that you can solve on a single computer using multiple computers.
+> Распределенное программирование это искуство решать теже самые проблемы которые вы можете решить на одном компьютере используя множество компьютеров.
 
-There are two basic tasks that any computer system needs to accomplish:
+Есть две базовых  задачи которые  должна выполнять любая система:
 
-- storage and
-- computation
+- хранение данных и
+- вычисления
 
-Distributed programming is the art of solving the same problem that you can solve on a single computer using multiple computers - usually, because the problem no longer fits on a single computer.
+Распределенное программирование это искуство решать теже самые проблемы которые вы можете решить на одном компьютере используя множество компьютеров - обычно, потому что данные проблемы больше нельзя решить на одном компьютере.
 
-Nothing really demands that you use distributed systems. Given infinite money and infinite R&D time, we wouldn't need distributed systems. All computation and storage could be done on a magic box - a single, incredibly fast and incredibly reliable system *that you pay someone else to design for you*.
+Конечно в реальности ничто не заставляет вас использовать распределенные системы. Имея бесконечные деньги и бесконечное время на исследования, мы сможем обойтись без использования распределенных систем. А все вычисления и хранение всех данных могут быть произведены на некотрой "магической коробке" - бесконечно быстрое и надежная система находящаяся в одном экземпляре *за разработку которой вы вероятно заплатите кому то другому*.
 
-However, few people have infinite resources. Hence, they have to find the right place on some real-world cost-benefit curve. At a small scale, upgrading hardware is a viable strategy. However, as problem sizes increase you will reach a point where either the hardware upgrade that allows you to solve the problem on a single node does not exist, or becomes cost-prohibitive. At that point, I welcome you to the world of distributed systems.
+Тем не менее, не многие люди имеют бесконечные ресурсы. Следовательно необходимо найти наиболее эффективную точку приложения средств на кривой затрат. В небольших масштабах, апгрейд оборудование является жизнеспособной стратегией. Однако, с увеличение размеров проблем вы столкнетесь с ситуацией когда апргейд оборудования на одному узле либо не решает проблемы либо стоит очень дорого. С этого момента, добро пожаловать в мир распределенных систем.
 
-It is a current reality that the best value is in mid-range, commodity hardware - as long as the maintenance costs can be kept down through fault-tolerant software.
+В нынешней ситуации лучшее решение сохранять стоимость оборудование  в середине ценового диапозона - до тех пор пока мы можем понижать стоимость решения проблем создавая распределенные отказоустойчивыые системы.
 
-Computations primarily benefit from high-end hardware to the extent to which they can replace slow network accesses with internal memory accesses. The performance advantage of high-end hardware is limited in tasks that require large amounts of communication between nodes.
+Вычисления могут получить приемущества от hi-end оборудование в той мере в которой оно может возместить потери производительности от медленного доступа в сеть быстрым доступом в память. Увеличение производительности путем приобретения hi-end обородувания ограничено задачами которые требуют большое число межсерверныз взаимодействий.
 
 ![cost-efficiency](images/barroso_holzle.png)
 
-As the figure above from [Barroso, Clidaras & Hölzle](http://www.morganclaypool.com/doi/abs/10.2200/S00516ED2V01Y201306CAC024) shows, the performance gap between high-end and commodity hardware decreases with cluster size assuming a uniform memory access pattern across all nodes.
+Как показывает картинка приведенная выше  [Barroso, Clidaras & Hölzle](http://www.morganclaypool.com/doi/abs/10.2200/S00516ED2V01Y201306CAC024) , разрыв производительности между hi-end системами и системами среднего уровня уменьшается с увеличением размера кластера в предположении равномерного доступа к памяти всех узлов.
 
-Ideally, adding a new machine would increase the performance and capacity of the system linearly. But of course this is not possible, because there is some overhead that arises due to having separate computers. Data needs to be copied around, computation tasks have to be coordinated and so on. This is why it's worthwhile to study distributed algorithms - they provide efficient solutions to specific problems, as well as guidance about what is possible, what the minimum cost of a correct implementation is, and what is impossible.
+В идеальном мире, добавление новой машины увеличивало бы производительность линейно. Но конечно это не возможно, так как существует некотрые накладные расходы на коммуникацию между узлами. Необходмио копировать данные с узла на узел а также координировать работу разных узлов. Именно поэтому стоит изучать распределенные алгоритмы - они предоставляют эффективные решения спечифических проблем когда это возможно либо снижает стоимость накладных расходов в случаев если избавиться от них совсем невзможно.
 
-The focus of this text is on distributed programming and systems in a mundane, but commercially relevant setting: the data center. For example, I will not discuss specialized problems that arise from having an exotic network configuration, or that arise in a shared-memory setting. Additionally, the focus is on exploring the system design space rather than on optimizing any specific design - the latter is a topic for a much more specialized text.
+В центре внимания этого текста распределенное программирование и системы в реальной жизни, но не промышленно важный параметр - датацентры. К примеру, в книге не будет обсуждатся специфичные проблемы которые могут быть при какойто экзотической настройке сети или возникаюшие при доступе к разделенной памяти. Основной упор делается на изучение пространства возможных архитектурных решений а  не о оптимизации какой либо определенной системы - эта тема более подходит для более специализированного текста.
 
 ## What we want to achieve: Scalability and other good things
 
