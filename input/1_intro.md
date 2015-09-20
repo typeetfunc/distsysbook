@@ -172,7 +172,7 @@
 - при увеличении числа независимых узлов может возрастать необходимость в коммуникации между узлами (сокращая производительность при масштабировании системы)
 - при увеличении растояния между узлами увеличевается задержка при коммуниции между удаленными узлами(сокращая производительность каждой конкретной операции)
 
-Beyond these tendencies - which are a result of the physical constraints - is the world of system design options.
+Помимо ограничений физического характера существуют также ограничения выбраного нами дизайна системы.
 
 Both performance and availability are defined by the external guarantees the system makes. On a high level, you can think of the guarantees as the SLA (service level agreement) for the system: if I write data, how quickly can I access it elsewhere? After the data is written, what guarantees do I have of durability? If I ask the system to run a computation, how quickly will it return results? When components fail, or are taken out of operation, what impact will this have on the system?
 
