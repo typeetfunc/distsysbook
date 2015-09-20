@@ -25,152 +25,152 @@
 
 В центре внимания этого текста распределенное программирование и системы в реальной жизни, но не промышленно важный параметр - датацентры. К примеру, в книге не будет обсуждатся специфичные проблемы которые могут быть при какойто экзотической настройке сети или возникаюшие при доступе к разделенной памяти. Основной упор делается на изучение пространства возможных архитектурных решений а  не о оптимизации какой либо определенной системы - эта тема более подходит для более специализированного текста.
 
-## What we want to achieve: Scalability and other good things
+## Чего мы хотим достичь: Масштабируемость и другие хорошие вещи
 
-The way I see it, everything starts with the need to deal with size.
+Все начинается с решения проблемы с размерами(данных и нагрузок).
 
-Most things are trivial at a small scale - and the same problem becomes much harder once you surpass a certain size, volume or other physically constrained thing. It's easy to lift a piece of chocolate, it's hard to lift a mountain. It's easy to count how many people are in a room, and hard to count how many people are in a country.
+Многие вещи довольно тривиальны в малых масштабах - и становится крайне сложной при увеличении размеров или иных физических характеристик до определенного уровня. Легко поднять кусочек шоколада и тяжело поднять гору. Легко посчитать число людей в комнате и тяжело посчитать число людей в стране.
 
-So everything starts with size - scalability. Informally speaking, in a scalable system as we move from small to large, things should not get incrementally worse. Here's another definition:
-
-<dl>
-  <dt>[Scalability](http://en.wikipedia.org/wiki/Scalability)</dt>
-  <dd>is the ability of a system, network, or process, to handle a growing amount of work in a capable manner or its ability to be enlarged to accommodate that growth.</dd>
-</dl>
-
-What is it that is growing? Well, you can measure growth in almost any terms (number of people, electricity usage etc.). But there are three particularly interesting things to look at:
-
-- Size scalability: adding more nodes should make the system linearly faster; growing the dataset should not increase latency
-- Geographic scalability: it should be possible to use multiple data centers to reduce the time it takes to respond to user queries, while dealing with cross-data center latency in some sensible manner.
-- Administrative scalability: adding more nodes should not increase the administrative costs of the system (e.g. the administrators-to-machines ratio).
-
-Of course, in a real system growth occurs on multiple different axes simultaneously; each metric captures just some aspect of growth.
-
-A scalable system is one that continues to meet the needs of its users as scale increases. There are two particularly relevant aspects - performance and availability - which can be measured in various ways.
-
-### Performance (and latency)
+Этот факт является основой такого свойства как масштабируемость. Неформально говоря, в масштабируемой системе переходя от малого обьема к большим мы не должны получать постепенное ухудшение. Вот еще одно определение:
 
 <dl>
-  <dt>[Performance](http://en.wikipedia.org/wiki/Computer_performance)</dt>
-  <dd>is characterized by the amount of useful work accomplished by a computer system compared to the time and resources used.</dd>
+  <dt>[Мастштабируемость](http://en.wikipedia.org/wiki/Scalability)</dt>
+  <dd>способность системы, сети или процесса справляться с увеличением рабочей нагрузки (увеличивать свою производительность) при добавлении ресурсов.</dd>
 </dl>
 
-Depending on the context, this may involve achieving one or more of the following:
+Что это могут быть за ресурсы? Вы можете измерять их в любом единицах измерения (число людей, использования электричества итд.). Но есть три интересных случая масштабируемости - каждый задействует определенный тип ресурсов:
 
-- Short response time/low latency for a given piece of work
-- High throughput (rate of processing work)
-- Low utilization of computing resource(s)
+- Мастштабируемость размера: добавление большего числа должно позволять увеличивать производительность линейно; увеличение размеров данных не должно увеличивать задержки обработки данных
+- Гео-масштабируемость: возможность использовать несколько датацентров для сокрашения времени ответа юзеру, с учетом задержки кросс-дата-центр коммуникаций.
+- Административная масштабируемость: добавление большего числа узлов не должно увеличивать количество администраторов необходимых для обслуживание всего парка машин.
 
-There are tradeoffs involved in optimizing for any of these outcomes. For example, a system may achieve a higher throughput by processing larger batches of work thereby reducing operation overhead. The tradeoff would be longer response times for individual pieces of work due to batching.
+Конечно в реальной системе рост происходит сразу в нескольких направлениях; каждый отдельный показатель фиксирует отдельный аспект роста.
 
-I find that low latency - achieving a short response time - is the most interesting aspect of performance, because it has a strong connection with physical (rather than financial) limitations. It is harder to address latency using financial resources than the other aspects of performance.
+Масштабируемая система продолжает удовлетворять потребности своих пользователей в то время как растет общий масштаб системы и данных. Есть два сопутсвующих аспекта - производительность и доступность - которые могут быть измерены раздичным способом.
 
-There are a lot of really specific definitions for latency, but I really like the idea that the etymology of the word evokes:
+### производительность (и отзывчивость)
 
 <dl>
-  <dt>Latency</dt>
-  <dd>The state of being latent; delay, a period between the initiation of something and the occurrence.</dd>
+  <dt>[Производительность](http://en.wikipedia.org/wiki/Computer_performance)</dt>
+  <dd>это характеристика количества полезной работы выполненой компьютерной системой в сравнение с потраченным ей временем и числом ресурсов.</dd>
 </dl>
 
-And what does it mean to be "latent"?
+В зависимости от контекста она может включать в себя достижение одной или более целей:
+
+- Малое время ответа/малое время задержки для отдельного участка работы
+- Высокая пропускная способность(скорость обработки)
+- Низкое потребление компьютерных
+
+Однако существуют некотрые компромисы при достижении любой из этих целей. Для примера, система может достигнуть высокой производительности путем обработки информации большими партиями снижая рабочую нагрузку. Однако время ответа для одного запроса возрастет изза увеличения количества данных обрабатываемых за один запрос.
+
+Я нахожу что низкая латентность(latency) системы - достижение малого времени ответа - наиболее важный аспект производительсности, так как он имеет строгую зависимость с физическими(скорее даже финансовыми) ограничениями. Т.е. задержки сильнее влиют на финансовые аспекты функционирования системы чем другие аспекты вопросы производительности.
+
+Существое много определений понятия "латентность", но действительно просто определить его через этимологию данного слова:
 
 <dl>
-  <dt>Latent</dt>
-  <dd>From Latin latens, latentis, present participle of lateo ("lie hidden"). Existing or present but concealed or inactive.</dd>
+  <dt>Латентности</dt>
+  <dd>Состояние в котором обьект латентнен; прерывание, период между началом чего либо и его возникновением.</dd>
 </dl>
 
-This definition is pretty cool, because it highlights how latency is really the time between something happened and the time it has an impact or becomes visible.
-
-For example, imagine that you are infected with an airborne virus that turns people into zombies. The latent period is the time between when you became infected, and when you turn into a zombie. That's latency: the time during which something that has already happened is concealed from view.
-
-Let's assume for a moment that our distributed system does just one high-level task: given a query, it takes all of the data in the system and calculates a single result. In other words, think of a distributed system as a data store with the ability to run a single deterministic computation (function) over its current content:
-
-`result = query(all data in the system)`
-
-Then, what matters for latency is not the amount of old data, but rather the speed at which new data "takes effect" in the system. For example, latency could be measured in terms of how long it takes for a write to become visible to readers.
-
-The other key point based on this definition is that if nothing happens, there is no "latent period". A system in which data doesn't change doesn't (or shouldn't) have a latency problem.
-
-In a distributed system, there is a minimum latency that cannot be overcome: the speed of light limits how fast information can travel, and hardware components have a minimum latency cost incurred per operation (think RAM and hard drives but also CPUs).
-
-How much that minimum latency impacts your queries depends on the nature of those queries and the physical distance the information needs to travel.
-
-### Availability (and fault tolerance)
-
-The second aspect of a scalable system is availability.
+И что же мы понимаем под прилагательным "латентный"?
 
 <dl>
-  <dt>[Availability](http://en.wikipedia.org/wiki/High_availability)</dt>
-  <dd>the proportion of time a system is in a functioning condition. If a user cannot access the system, it is said to be unavailable. </dd>
+  <dt>Латентный</dt>
+  <dd>Существование в скрытом или неактивном режиме</dd>
 </dl>
 
-Distributed systems allow us to achieve desirable characteristics that would be hard to accomplish on a single system. For example, a single machine cannot tolerate any failures since it either fails or doesn't.
+Это определение хорошо тем что оно подчеркивает как латентность определяет количество времени которое пройдет от того момента что либо произошло в системе до того момента когда это изменение станет видимым для наблюдателя(пользователя системы).
 
-Distributed systems can take a bunch of unreliable components, and build a reliable system on top of them.
+Для примера, представим что ты заразился вирусом который преврашает людей в зомби. Период латентности это время прошедшая с момента когда ты заразился до момента когда ты превратишься в зомби. Это и есть латентность: время требуюшееся для того чтобы чтото перешло из скрытого состояние в видимое.
 
-Systems that have no redundancy can only be as available as their underlying components. Systems built with redundancy can be tolerant of partial failures and thus be more available. It is worth noting that "redundant" can mean different things depending on what you look at - components, servers, datacenters and so on.
+Давайте предположим на минуту что наша распределенная система выполняет только высокоуровневые задачи: выполняет запрос который принимает все данные в системе и вычисляет по ним какой один результат. Другими словами, размышляйте о распределенной системе как о хранилище данных с возможностью выполнить некую детерминированную функцию от хранящихся в ней данных:
 
-Formulaically, availability is: `Availability = uptime / (uptime + downtime)`.
+`результат = запрос(все данные в системе)`
 
-Availability from a technical perspective is mostly about being fault tolerant. Because the probability of a failure occurring increases with the number of components, the system should be able to compensate so as to not become less reliable as the number of components increases.
+Тогда, на величину задержки будет влиять не количество данных, а скорость с которой новые данные вступают в силу. Для примера, задержка может показывать как долго пользватели которые читают информацию из системы не увидять новых данных записанных другими пользователя.
 
-For example:
+Другой ключевой особенность данного определения является то что если в системе ничего не сменилось то период задержки будет равен нулю. Система в которой данные не изменяются не имеет проблем с отзывчивостью.
+
+В распределенных системах есть минималььная задержка которую физически нельзя преодолеть: скорость света ограничивает скорость передачи информации а апаратные компоненты ограничивают скорость выполнения операций(в первую очередь диск и оперативная память но также и процессор).
+
+Минимально возможная задержка зависит от того какое растояние надо преодолеть информации и типа запросов к данным.
+
+### Доступность (и отказоустойчивость)
+
+Второй аспект масштабируемых систем это доступность.
+
+<dl>
+  <dt>[Доступность](http://en.wikipedia.org/wiki/High_availability)</dt>
+  <dd>время в течении которого система находится в состоянии работоспособности. Если пользователь не имеет доступа к системе - система не доступна. </dd>
+</dl>
+
+Распределенные системы позволяют нам достигать значений характеристик которые будет очень сложно достичь в одной системе. Для примера одна машина никогда не будет устойчива ко всему спектру отказов.
+
+Распределенные системы позволяют брать ненадежные элементы и объединяя их получать надежную систему.
+
+Системы которые не имеют избыточности надежны настолько насколько надежны их компоненты. Системы построенные с избыточностью могут быть устойчивы к частичным сбоям их компонентов.Избычтоность может выражатся в чем угодно - серверах, компонентах, датацентрах ит.
+
+Формально, доступность это: `Доступность = время работы / (время работы + время отказа)`.
+
+С технической точки зрения доступность системы обеспечивается в певую очередь высокой отказоустойчивостью. Поскольку вероятность отказа одного конкретного компонента системы увеличиваается с ростом числа компонентов система должна это компенсировать тем что не позволять увеличиваться вероятность отказа всей системы при росте числа компонентов.
+
+Пример:
 
 <table>
 <tr>
-  <td>Availability %</td>
-  <td>How much downtime is allowed per year?</td>
+  <td>Достуность %</td>
+  <td>Суммарное время неработоспособности системы в год?</td>
 </tr>
 <tr>
-  <td>90% ("one nine")</td>
-  <td>More than a month</td>
+  <td>90% ("одна девятка")</td>
+  <td>Более месяца</td>
 </tr>
 <tr>
-  <td>99% ("two nines")</td>
-  <td>Less than 4 days</td>
+  <td>99% ("две девятки")</td>
+  <td>более 4 дней</td>
 </tr>
 <tr>
-  <td>99.9% ("three nines")</td>
-  <td>Less than 9 hours</td>
+  <td>99.9% ("три девятки")</td>
+  <td>более 9 часов</td>
 </tr>
 <tr>
-  <td>99.99% ("four nines")</td>
-  <td>Less than an hour</td>
+  <td>99.99% ("четыре девятки")</td>
+  <td>более чем час</td>
 </tr>
 <tr>
-  <td>99.999% ("five nines")</td>
-  <td>~ 5 minutes</td>
+  <td>99.999% ("5 девяток")</td>
+  <td>~ 5 минут</td>
 </tr>
 <tr>
-  <td>99.9999% ("six nines")</td>
-  <td>~ 31 seconds</td>
+  <td>99.9999% ("6 девяток")</td>
+  <td>~ 31 секунд</td>
 </tr>
 </table>
 
 
-Availability is in some sense a much wider concept than uptime, since the availability of a service can also be affected by, say, a network outage or the company owning the service going out of business (which would be a factor which is not really relevant to fault tolerance but would still influence the availability of the system). But without knowing every single specific aspect of the system, the best we can do is design for fault tolerance.
+Доступность конечно  не определяется времемнем безотказной работы. Сервисы могут быть недоступны изза сетевых проблем либо каких либо проблем бизнесса (что конечно не проблема решаемая путем отказоустойчивости). Но не имею информации о всех аспектах будующего функционирования системы лучшее что мы можем сделать это разрабатывать системы закладывая в нее свойство отказоустойчивости.
 
-What does it mean to be fault tolerant?
+Что мы понимаем под отказоустойчивостью?What does it mean to be fault tolerant?
 
 <dl>
-  <dt>Fault tolerance</dt>
-  <dd>ability of a system to behave in a well-defined manner once faults occur</dd>
+  <dt>Отказоустойчивость</dt>
+  <dd>Способность системы вести себя заранее определенным образом в случае отказов</dd>
 </dl>
 
-Fault tolerance boils down to this: define what faults you expect and then design a system or an algorithm that is tolerant of them. You can't tolerate faults you haven't considered.
+Создание отказоустойчивых систем сводится к следующему: определить возможные отказы и разработать алгоритмы которые нечувстивительны к такого рода отказов. Вы не можете создать алгоритм не чувствительный к отказам которые вы не предустмотрели.
 
-## What prevents us from achieving good things?
+## Что мешает нам достичь этих целей(производительность и отказоустойчивость)?
 
-Distributed systems are constrained by two physical factors:
+Распределенные системы ограничены двумя факторами:
 
-- the number of nodes (which increases with the required storage and computation capacity)
-- the distance between nodes (information travels, at best, at the speed of light)
+- число узлов (которое будет возрастать в соотвествии с возрастающими требованиями к хранию данных и их обработке)
+- растояние между узлами (информация распространяется в лучшем случае со скоростью света)
 
-Working within those constraints:
+Работая в этих ограничениях:
 
-- an increase in the number of independent nodes increases the probability of failure in a system (reducing availability and increasing administrative costs)
-- an increase in the number of independent nodes may increase the need for communication between nodes (reducing performance as scale increases)
-- an increase in geographic distance increases the minimum latency for communication between distant nodes (reducing performance for certain operations)
+- при увеличении числа независимых узлов увеличивается вероятность отказа в системе (сокращая доступность и увеличивая административные расходы)
+- при увеличении числа независимых узлов может возрастать необходимость в коммуникации между узлами (сокращая производительность при масштабировании системы)
+- при увеличении растояния между узлами увеличевается задержка при коммуниции между удаленными узлами(сокращая производительность каждой конкретной операции)
 
 Beyond these tendencies - which are a result of the physical constraints - is the world of system design options.
 
