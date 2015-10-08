@@ -174,25 +174,25 @@
 
 Помимо ограничений физического характера существуют также ограничения выбраного нами дизайна системы.
 
-Both performance and availability are defined by the external guarantees the system makes. On a high level, you can think of the guarantees as the SLA (service level agreement) for the system: if I write data, how quickly can I access it elsewhere? After the data is written, what guarantees do I have of durability? If I ask the system to run a computation, how quickly will it return results? When components fail, or are taken out of operation, what impact will this have on the system?
+Система должна гарантировать поддержание производительности и отказоустойчивости. Если рассуждать абстрактно, то вы можете думать о данных гарантиях, как о некоем "Соглашении об уровне услуг" (*англ. SLA*), которое отвечает на ряд вопросов. Если я запишу данные, как быстро они будут доступны в другом месте? После того как я записал данные, какие гарантии даются касательно их сохранности? Если я сделаю запрос к системе на вычисление, как быстро я буду получать результат? Если компоненты выйдут из строя, какое влияние это окажет на систему в целом?
 
-There is another criterion, which is not explicitly mentioned but implied: intelligibility. How understandable are the guarantees that are made? Of course, there are no simple metrics for what is intelligible.
+Есть еще один критерий, который как правило не упоминается, но подразумевается - понятность. Он отвечает на вопрос: насколько понятны предлагаемые гарантии? К сожалению, не существует каких-то простых метрик, описывающих понятность.
 
-I was kind of tempted to put "intelligibility" under physical limitations. After all, it is a hardware limitation in people that we have a hard time understanding anything that involves [more moving things than we have fingers](http://en.wikipedia.org/wiki/Working_memory#Capacity). That's the difference between an error and an anomaly - an error is incorrect behavior, while an anomaly is unexpected behavior. If you were smarter, you'd expect the anomalies to occur.
+Мне хотелось добавить "понятность" к физическим ограничениям. В конце концов, применительно к людям, это действительно физическое ограничение. Нам нужно время, чтобы вникнуть в суть предмета, если он одновременно включает в себя [больше непосредственно взаимодействующих частей, чем у нас пальцев](http://en.wikipedia.org/wiki/Working_memory#Capacity). Отсюда вытекает различие между двумя нежелательными поведениями системы "ошибкой" и "аномалией" - ошибкой назвают некорректное поведение, аномалия же в свою очередь, это неожиданное поведение. Хороший специалист должен быть готов, к тому, что аномалии могут происходить.
 
-## Abstractions and models
+## Абстракции и модели
 
-This is where abstractions and models come into play. Abstractions make things more manageable by removing real-world aspects that are not relevant to solving a problem. Models describe the key properties of a distributed system in a precise manner. I'll discuss many kinds of models in the next chapter, such as:
+В этом месте в игру вступают абстракции и модели. Абстракции скрывают некоторые детали, которые непосредственно не влияют на решение задачи, позволяя управлять глобальными объектами. А модели максимально точно описывают ключевые свойства распределенной системы. В следующей главе будут рассмотрены следующие виды моделей:
 
-- System model (asynchronous / synchronous)
-- Failure model (crash-fail, partitions, Byzantine)
-- Consistency model (strong, eventual)
+- Модель системы (ассинхронная / синхронная)
+- Модель отказов (crash-fail, partitions, Byzantine)
+- Модель консистентности (строгая, причинная)
 
-A good abstraction makes working with a system easier to understand, while capturing the factors that are relevant for a particular purpose.
+Хорошая абстракция облегчает работу с системой, путем манипулирования только ключевыми факторами, имеющими значение при достижении конкретной цели.
 
-There is a tension between the reality that there are many nodes and with our desire for systems that "work like a single system". Often, the most familiar model (for example, implementing a shared memory abstraction on a distributed system) is too expensive.
+При наличии множества узлов, наше желание чтобы "система работала как единое целое" не всегда всегда оказывается правильным. Часто наиболее привычная модель (например, создание разделяемой памяти), является невыгодным.
 
-A system that makes weaker guarantees has more freedom of action, and hence potentially greater performance - but it is also potentially hard to reason about. People are better at reasoning about systems that work like a single system, rather than a collection of nodes.
+Система, которая дает наиболее неопределенные гарантии имеет большую свободу действий, следовательно потенциально большую производительность. Но это так же потенциально более сложный объект для понимания. Людям проще думать о системе, как о едином целом, а не о наборе узлов.
 
 One can often gain performance by exposing more details about the internals of the system. For example, in [columnar storage](http://en.wikipedia.org/wiki/Column-oriented_DBMS), the user can (to some extent) reason about the locality of the key-value pairs within the system and hence make decisions that influence the performance of typical queries. Systems which hide these kinds of details are easier to understand (since they act more like single unit, with fewer details to think about), while systems that expose more real-world details may be more performant (because they correspond more closely to reality).
 
