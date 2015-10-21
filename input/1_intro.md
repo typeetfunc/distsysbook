@@ -194,57 +194,57 @@
 
 Система, которая дает наиболее неопределенные гарантии имеет большую свободу действий, следовательно потенциально большую производительность. Но это так же потенциально более сложный объект для понимания. Людям проще думать о системе, как о едином целом, а не о наборе узлов.
 
-One can often gain performance by exposing more details about the internals of the system. For example, in [columnar storage](http://en.wikipedia.org/wiki/Column-oriented_DBMS), the user can (to some extent) reason about the locality of the key-value pairs within the system and hence make decisions that influence the performance of typical queries. Systems which hide these kinds of details are easier to understand (since they act more like single unit, with fewer details to think about), while systems that expose more real-world details may be more performant (because they correspond more closely to reality).
+Зачастую можно получить большую производительность предоставляя пользователю системы более подробную информацию о внутреннем устройстве. Для примера в [колоночно-ориентированных базах данных](http://en.wikipedia.org/wiki/Column-oriented_DBMS), пользователь может (в некотрой степени) иметь представление о том в какой части системы(в каком виде) находятся пары ключ-значение и на основе этого принимать решения которые виляют на производительность типичных запросов. Системы которые скрывают подобные детали реализации проще для понимания(так как они представляют собой единое целое с некотрым определенным интерфейсом с меньшим числом деталей), однако системы которые выставляют наружу больше деталей(то есть менее абстрактные системы)  могут быть более производительными (потому что они более согласуются с реальностью - так как реальность может быть весьма разнообразна).
 
-Several types of failures make writing distributed systems that act like a single system difficult. Network latency and network partitions (e.g. total network failure between some nodes) mean that a system needs to sometimes make hard choices about whether it is better to stay available but lose some crucial guarantees that cannot be enforced, or to play it safe and refuse clients when these types of failures occur.
+Также некотрые виды отказов в распределенных системах делают сложным написание распределенных систем которые будут работать как единая. Сетевые задержки и разделение сети(исчезновение сети между узлами) означает что система должна делать сложный выбор между тем чтобы остаться доступной и потерять некотрые гарантии корректности либо отказатся от обслуживание клиентов сохраняя корректность работы во время сетевых сбоев.
 
-The CAP theorem - which I will discuss in the next chapter - captures some of these tensions. In the end, the ideal system meets both programmer needs (clean semantics) and business needs (availability/consistency/latency).
+CAP теорема - о которой будет вестись речь в следующей главе - говорит об этих противоречиях. Подведем итог - идеальная система будет отвечать как потребностям программиста(будет иметь простую и чистую семантику) так и бизнесс нуждам (доступность/корректность/низкие задержки обработки).
 
-## Design techniques: partition and replicate
+## Методы проектирования: партиционирование и репликация
 
-The manner in which a data set is distributed between multiple nodes is very important. In order for any computation to happen, we need to locate the data and then act on it.
+Способ которым данные распределяются по узлам крайне важем. Любое вычисление сначала предпологает получение данных(то есть нахождение их на конкретном узле системы) и только потом выполнение с ними определенных операций.
 
-There are two basic techniques that can be applied to a data set. It can be split over multiple nodes (partitioning) to allow for more parallel processing. It can also be copied or cached on different nodes to reduce the distance between the client and the server and for greater fault tolerance (replication).
+Существует два базовых метода которые могут быть применены для разделения всего набора данных. Это может быть разделение данных между несколькими узлами(партиционирование) для обеспечения их паралельной обработки. Либо можно скопировать(или закешировать) одни и теже данные на разных узлах для уменьшения дистанции между клиентом и сервером и для повышения отказоустойчивости.
 
-> Divide and conquer - I mean, partition and replicate.
+> Разделяй и властвуй - то есть партиционируй и реплицируй.
 
-The picture below illustrates the difference between these two: partitioned data (A and B below) is divided into independent sets, while replicated data (C below) is copied to multiple locations.
+Данная картинка иллюстрирует разницу между этими двумя методиками: партиционированные данные (A и B) разделены на независимые наборы данных, в то время как реплицированные данные представляют собой копию одного и тогоже набора данных в разных местах.
 
 ![Partition and replicate](images/part-repl.png)
 
-This is the one-two punch for solving any problem where distributed computing plays a role. Of course, the trick is in picking the right technique for your concrete implementation; there are many algorithms that implement replication and partitioning, each with different limitations and advantages which need to be assessed against your design objectives.
+Это двух-звенное решение любой проблемы связанных с распределенными вычислениями. Конечно трудность в том что существует множество алгоритмов партиционирования и репликации; каждый имеет свои приемущества и ограничения, которые должны учитыватся относительно целей вашего проектирования.
 
-### Partitioning
+### Партиционирование
 
-Partitioning is dividing the dataset into smaller distinct independent sets; this is used to reduce the impact of dataset growth since each partition is a subset of the data.
+Партиционирование разделяет набор данных на меньшие независимые части - для того чтобы сократить влияние роста общего количества данных.
 
-- Partitioning improves performance by limiting the amount of data to be examined and by locating related data in the same partition
-- Partitioning improves availability by allowing partitions to fail independently, increasing the number of nodes that need to fail before availability is sacrificed
+- Партиционирование улучшает производительность за счет ограничения количества рассматриваемых данных и размещения связанных между собой данных в одном и том же разделе
+- Партиционирование улучшает доступность так как разные партиции независимы и отказ одной не затрагивает другую, увеличивается число узлов которые должны отказать для того чтобы система стала полностью не доступна
 
-Partitioning is also very much application-specific, so it is hard to say much about it without knowing the specifics. That's why the focus is on replication in most texts, including this one.
+Партиционирование также весьма специфично для каждого приложения, поэтому трудно много сказать о нем не зная специфики конкретной системы. Поэтому большая часть текстов(включая этот) больше внимания уделяет репликация.
 
-Partitioning is mostly about defining your partitions based on what you think the primary access pattern will be, and dealing with the limitations that come from having independent partitions (e.g. inefficient access across partitions, different rate of growth etc.).
+Партиционирование в большей степени это то как вы разделяете свои данные, какой у вас основой паттерн доступа к данным и борьба с ограничениями разделения данных (таких как неэффективный доступ между разделами, разная скорость роста разных разделов и.т.д).
 
-### Replication
+### Репликация
 
-Replication is making copies of the same data on multiple machines; this allows more servers to take part in the computation.
+Репликация это создание копии одних и тех же данных на разных машинах; это позволяет многим серверами принимать участие в вычислениях.
 
-Let me inaccurately quote [Homer J. Simpson](http://en.wikipedia.org/wiki/Homer_vs._the_Eighteenth_Amendment):
+Позвольте мне неточную цитату [Homer J. Simpson](http://en.wikipedia.org/wiki/Homer_vs._the_Eighteenth_Amendment):
 
-> To replication! The cause of, and solution to all of life's problems.
+> Копирование! Причина и решение всех жизненых проблем.
 
-Replication - copying or reproducing something - is the primary way in which we can fight latency.
+Репликация - копирование или перевоспроизведение чего-либо - основной способ борьбы с задержками.
 
-- Replication improves performance by making additional computing power and bandwidth applicable to a new copy of the data
-- Replication improves availability by creating additional copies of the data, increasing the number of nodes that need to fail before availability is sacrificed
+- Репликация улучшает производительность добавляя вычислительные мощности и пропускную способность с каждой новой копией данных
+- Репликация улучшает доступность путем создания дополнительных копий данных, увеличивая число узлов которые должны выйти из строя прежде чем система окажется недоступна
 
-Replication is about providing extra bandwidth, and caching where it counts. It is also about maintaining consistency in some way according to some consistency model.
+Основной целью репликации является увеличение пропускной способности и кеширование там где оно необходимо. Также необходимо сохранять согласованость в соотвествии с некотрой выбранной моделью согласованности.
 
-Replication allows us to achieve scalability, performance and fault tolerance. Afraid of loss of availability or reduced performance? Replicate the data to avoid a bottleneck or single point of failure. Slow computation? Replicate the computation on multiple systems. Slow I/O? Replicate the data to a local cache to reduce latency or onto multiple machines to increase throughput.
+Репликация позволяет добится масштабируемости, производительности и отказоустойчивости. Боитесь потерять доступность системы или сократить производительность? Реплицируйте данные для избежания "бутылочного горлышка" системы и единой точки отказа. Медленные вычисления? Реплицируйте вычисления на несколько систем. Медленный I/O? Реплицируйте данные в локальный кеш или на несколько машин для увеличения пропускной способности.
 
-Replication is also the source of many of the problems, since there are now independent copies of the data that has to be kept in sync on multiple machines - this means ensuring that the replication follows a consistency model.
+Но репликация является также источником многих проблем, так как данные на разных машинах должны быть синхронизированны - это должно обеспечиватся некотрой моделью согласованности.
 
-The choice of a consistency model is crucial: a good consistency model provides clean semantics for programmers (in other words, the properties it guarantees are easy to reason about) and meets business/design goals such as high availability or strong consistency.
+Выбор модели согласоваанности имеет решаюшее значение: хорошая модель предоставляет чистую семантику для программиста(другими словами о ней легко думать и ее легко анализировать) и идет на встречу бизнесс целям такми как высокая доступность или строгая согласованность.
 
 Only one consistency model for replication - strong consistency - allows you to program as-if the underlying data was not replicated. Other consistency models expose some internals of the replication to the programmer. However, weaker consistency models can provide lower latency and higher availability - and are not necessarily harder to understand, just different.
 
