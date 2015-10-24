@@ -1,109 +1,109 @@
-# %chapter_number%. Up and down the level of abstraction
+# %chapter_number%. Вверх и вниз по уровню абстракции
 
-In this chapter, we'll travel up and down the level of abstraction; look at some impossibility results (CAP and FLP) and then travel back down for the sake of performance.
+В этой главе, мы отправимся в путешествие вверх по уровню абстракции - увидим навозможность некотрых вариантов результатов (CAP и FLP результаты) и спустимся обратно вниз ради производительности.
 
-If you've done any programming, the idea of levels of abstraction is probably familiar to you. You'll always work at some level of abstraction, interface with a lower level layer through some API, and probably provide some higher-level API or user interface to your users. The seven-layer [OSI model of computer networking](http://en.wikipedia.org/wiki/OSI_model) is a good example of this.
+Если вы занимаетесь каким-либо программированием, то идея о разделении уровней абстракции должна быть вам близка. Вы всегда работаете на каком-то определенном уровне абстракции, и в тоже время используете некотрое API(интерфейс) для доступа к более низкому уровню и предоставляете более высокоуровневое API либо некотрый интерфейс пользователя. Семиуровневая модель [OSI](http://en.wikipedia.org/wiki/OSI_model) хороший пример этого.
 
-Distributed programming is, I'd assert, in large part dealing with consequences of distribution (duh!). That is, there is a tension between the reality that there are many nodes and with our desire for systems that "work like a single system". That means finding a good abstraction that balances what is possible with what is understandable and performant.
+Распределенное программирование большей своей частью представляет борьбу с последствиями распределенности системы. Это происходит по той причине что между реальностью, где существует несколько узлов системы и нашими желаниями представить систему в виде единого целого огромная пропасть. Поэтому хорошая абстракция должна соблюдать баланс между осуществимостью в реальности и простотой и производительностью.
 
-What do we mean when say X is more abstract than Y? First, that X does not introduce anything new or fundamentally different from Y. In fact, X may remove some aspects of Y or present them in a way that makes them more manageable.
-Second, that X is in some sense easier to grasp than Y, assuming that the things that X removed from Y are not important to the matter at hand.
+Что мы понимаем под выражением "X более абстрактно чем Y"? Во-первых, что X не добавляет ничего нового или фундаментально отличающегося от Y. Фактически, X скорее отбрасывает некотрые аспекты Y и представляет из другим способом чтобы сделать их более управляемыми и простыми в использовании.
+Во-вторых, X в некотром смысле должна быть более простой в понимании чем Y, предпологается что сущности Y которых нет в X неважны для расмотрения.
 
-As [Nietzsche](http://oregonstate.edu/instruct/phl201/modules/Philosophers/Nietzsche/Truth_and_Lie_in_an_Extra-Moral_Sense.htm) wrote:
+Как написал [Ницще](http://oregonstate.edu/instruct/phl201/modules/Philosophers/Nietzsche/Truth_and_Lie_in_an_Extra-Moral_Sense.htm):
 
-> Every concept originates through our equating what is unequal. No leaf ever wholly equals another, and the concept "leaf" is formed through an arbitrary abstraction from these individual differences, through forgetting the distinctions; and now it gives rise to the idea that in nature there might be something besides the leaves which would be "leaf" - some kind of original form after which all leaves have been woven, marked, copied, colored, curled, and painted, but by unskilled hands, so that no copy turned out to be a correct, reliable, and faithful image of the original form.
+> Каждое понятое возникает из предположения одинаковым неодинакового. И как верно то, что один лист никогда не одинаков совершенно с другим, то и понятие “лист” образовано благодаря произвольному опущению этих индивидуальных различий, благодаря забвению того, что различает; так-то получается представление, будто бы в при роде, кроме листьев, есть еще – “лист”, служащий их первообразом, по образцу которого сотканы, нарисованы, размерены, раскрашены и завиты все листья, но это сделано неловкими руками, так что ни один экземпляр не может считаться верным отражением этого первообраза.
 
-Abstractions, fundamentally, are fake. Every situation is unique, as is every node. But abstractions make the world manageable: simpler problem statements - free of reality - are much more analytically tractable and provided that we did not ignore anything essential, the solutions are widely applicable.
+Абстракция, фундаментально - ложь. Каждая конкретная ситуация уникальна, как и каждый конкретный узел системы. Но абстрагирование делает мир управляевым: более простая постановка проблемы - свободная от реальности - более поддающаяся для решения и легко осмысляемы. При условии что мы не упускаем ничего фундаметально важного, такие решения могут быть очень широко применены.
 
-Indeed, if the things that we kept around are essential, then the results we can derive will be widely applicable. This is why impossibility results are so important: they take the simplest possible formulation of a problem, and demonstrate that it is impossible to solve within some set of constraints or assumptions.
+Действительно, если мы сохраняем существенные и фундаментальные стороны расмматриваемого обьекта, тогда результаты могут применятся очень широко. Именно поэтому невозможные результаты так важны для нас: они расмматривают проблему в целом и показывают что можно решить в определенных рамках ограничений и предположений.
 
-All abstractions ignore something in favor of equating things that are in reality unique. The trick is to get rid of everything that is not essential. How do you know what is essential? Well, you probably won't know a priori.
+Все абстракиции игнорируют некотрые особенности в пользу отождествления вещей которые в реальности являются уникальными. Хитрость заключается в том чтобы избавится от вссего что не является необходимым. Как мы определим что считать необходимым? Скорее всего вы не будете знать это наверняка.
 
-Every time we exclude some aspect of a system from our specification of the system, we risk introducing a source of error and/or a performance issue. That's why sometimes we need to go in the other direction, and selectively introduce some aspects of real hardware and the real-world problem back. It may be sufficient to reintroduce some specific hardware characteristics (e.g. physical sequentiality) or other physical characteristics to get a system that performs well enough.
+Каждый раз исключая некотрый аспект о системе из ее спецификации, мы рискуем внести источник ошибок или проблем с производительностью. Вот почему иногда нам необходимо идти в другом направлении и возвращать в нашу спецификацию выборочно некотрые аспекты реального железа и проблемы реального мира. Этого может быть достаточно чтобы вернуть некотрые специфические особенности обородувания (такие как физическая последовательность - железо работает всегда последовательно) или другие, чтобы получить систему которая работает достаточно хорошо.
 
-With this in mind, what is the least amount of reality we can keep around while still working with something that is still recognizable as a distributed system? A system model is a specification of the characteristics we consider important; having specified one, we can then take a look at some impossibility results and challenges.
+Принимая это все во внимание, какое наименьшее количество информации о реальности мы должны сохранить так чтобы наша модель системы была определяема как распределенная? Модель системы это спецификация характеристик которые мы считаем важными; специфицировав их мы можем определить недостижимость некотрых результатов и появление некотрых проблем.
 
-## A system model
+## Модель системы
 
-A key property of distributed systems is distribution. More specifically, programs in a distributed system:
+Ключевое свойство распределенной системы это(простите за каламбур) распределенность. Более подробно, программа в распределенной системе:
 
-- run concurrently on independent nodes ...
-- are connected by a network that may introduce nondeterminism and message loss ...
-- and have no shared memory or shared clock.
+- запускается конкурентно на нескольких узлах...
+- использует для сообщения сеть что может вносить элемент нон-детерминизма и потерю сообщений ...
+- и не имеет общей памяти или общего времени.
 
-There are many implications:
+Из этих фактов вытекает много следствий:
 
-- each node executes a program concurrently
-- knowledge is local: nodes have fast access only to their local state, and any information about global state is potentially out of date
-- nodes can fail and recover from failure independently
-- messages can be delayed or lost (independent of node failure; it is not easy to distinguish network failure and node failure)
-- and clocks are not synchronized across nodes (local timestamps do not correspond to the global real time order, which cannot be easily observed)
+- каждый узел запускает программу конкурентно(в тоже время когда ее испольняют другие)
+- знания каждого узла локальны: узлы имеют очень быстрый доступ только к их локальному состоянию и любая информация о глобальном состоянии может быть потенциально устаревшей
+- узлы могут падать и востанавливатся независимо
+- доставка сообщений могут быть задержана либо они могут быть совсем потеряны (независимо от падения узла; крайне сложно отличить падение узла от исчезновения сети до этого узла)
+- и время(часы) не синхронизированы между узлами (локальное время не согласуется с глобальным порядком операций который не может быть просто отслежен)
 
-A system model enumerates the many assumptions associated with a particular system design.
+Модель системы включает в себя многие допущения связанные с конкретным дизайном системы.
 
 <dl>
-  <dt>System model</dt>
-  <dd>a set of assumptions about the environment and facilities on which a distributed system is implemented</dd>
+  <dt>Модель системы</dt>
+  <dd>набор допущений об окружении и возможностях в рамках которых будет осуществлятся распределенная система</dd>
 </dl>
 
-System models vary in their assumptions about the environment and facilities. These assumptions include:
+Разные модели различаются в допущениях и возможностях. Среди таких допущений может быть:
 
-- what capabilities the nodes have and how they may fail
-- how communication links operate and how they may fail and
-- properties of the overall system, such as assumptions about time and order
+- что за ресурсы есть у узла и как они могут отказать
+- какими коммуникациями они связаны и как они могут отказать
+- свойства общие для всей системы, такие как допущения о времени и порядке
 
-A robust system model is one that makes the weakest assumptions: any algorithm written for such a system is very tolerant of different environments, since it makes very few and very weak assumptions.
+Более надежной моделью системы является та что делает более слабые предположения: любой алгоритм написанный для такой системы будет крайне нечувствителен к различным видам окружения, поскольку он делает мало очень слабых допущений.
 
-On the other hand, we can create a system model that is easy to reason about by making strong assumptions. For example, assuming that nodes do not fail means that our algorithm does not need to handle node failures. However, such a system model is unrealistic and hence hard to apply into practice.
+С другой стороны, мы можем создать модель которая будет крайне проста по причине того что она делает сильные допущения. Для примера, допущение что узел не может отказать означает что алгоритму не надо уметь обрабатывать отказы. Однако, подобная модель системы крайне нереалистична и нежизнеспособна на практике.
 
-Let's look at the properties of nodes, links and time and order in more detail.
+Давайте посмотрим на свойства узлов, коммуникации и времени более детально.
 
-### Nodes in our system model
+### Узлы в нашей модели системы
 
-Nodes serve as hosts for computation and storage. They have:
+Узлы это то на чем происходят вычисления и где хранятся данные. У них есть:
 
-- the ability to execute a program
-- the ability to store data into volatile memory (which can be lost upon failure) and into stable state (which can be read after a failure)
-- a clock (which may or may not be assumed to be accurate)
+- способность выполнять программу
+- способность хранить данные во временной памяти(будет потеряна при падении) и в постоянной памяти(которую можно будет прочитать после падения)
+- часы(локальный порядок выполнения операци) - которые могут считатся точными или нет
 
-Nodes execute deterministic algorithms: the local computation, the local state after the computation, and the messages sent are determined uniquely by the message received and local state when the message was received.
+Узлы исполняют детерминированные алгоритмы: локальные вычисления и локальное состояние после вычисления и отправленные сообщения определяются полученными сообщениями и локальным состоянием которые было на узле когда были получены эти сообщения.
 
-There are many possible failure models which describe the ways in which nodes can fail. In practice, most systems assume a crash-recovery failure model: that is, nodes can only fail by crashing, and can (possibly) recover after crashing at some later point.
+Существует много моделей отказов которые описывают варианты при которых узел может отказать. На практике, большинство систем предпологают crash-recovery модель отказа: то есть, узел может отказать из-за какой либо аварии и может быть востановлен после этого до какого то состояния в прошлом.
 
-Another alternative is to assume that nodes can fail by misbehaving in any arbitrary way. This is known as [Byzantine fault tolerance](http://en.wikipedia.org/wiki/Byzantine_fault_tolerance). Byzantine faults are rarely handled in real world commercial systems, because algorithms resilient to arbitrary faults are more expensive to run and more complex to implement. I will not discuss them here.
+Другая альтернатива предпологает что узел может отказать в результате неправильного поведения произвольным способом. Она известна как [Byzantine fault tolerance](http://en.wikipedia.org/wiki/Byzantine_fault_tolerance). Ошибки такого типа крайне редко обрабатывааются в реальных системах, так как крайне трудно сделать алгоритмы устойчивыми к произвольным типам ошибок -такие алгоритмы дороже в разработке и их сложнее запускать. В данной книге не будет обсуждатся данная модель.
 
-### Communication links in our system model
+### Коммуникационные связи в нашей модели системы
 
-Communication links connect individual nodes to each other, and allow messages to be sent in either direction. Many books that discuss distributed algorithms assume that there are individual links between each pair of nodes, that the links provide FIFO (first in, first out) order for messages, that they can only deliver messages that were sent, and that sent messages can be lost.
+Коммуникационные связи соединяют каждый узел с другим, и позволяют отсылать сообщения в обоих направлениях. Многие книги которые рассказывают о распределенных алгоритмах допускают что существуют индивидуальные связи для каждой пары узлов, с FIFO (первым пришёл — первым ушёл) порядком сообщений, и только отправленные сообщения могут быть доставлены но отправленые сообщения могут быть потеряны.
 
-Some algorithms assume that the network is reliable: that messages are never lost and never delayed indefinitely. This may be a reasonable assumption for some real-world settings, but in general it is preferable to consider the network to be unreliable and subject to message loss and delays.
+Некотрые алгоритмы допускают что сеть не может отказывать - сообщения не могут быть потеряны или задержаны на неопределенный срок. Это может быть оправданным в предположении некотрых параметров реального мира, но в общем случае предпочтительнее считать, что сеть вещь непостоянная и могут быть как потери сообщений так и их задержка.
 
-A network partition occurs when the network fails while the nodes themselves remain operational. When this occurs, messages may be lost or delayed until the network partition is repaired. Partitioned nodes may be accessible by some clients, and so must be treated differently from crashed nodes. The diagram below illustrates a node failure vs. a network partition:
+Разделение сети происходит когда сеть между узлами падает в то время как сами узлами остаются работоспособными. Когда это происходит, сообщения могу быть потеряны или задержаны до тех пор пока сеть не востановится. Разделенные узлы могут быть доступны для некотрых клиентов и по этой причине должно рассматриваться иначе нежели падение конкретного уззла. Диаграмма ниже показывает разницу между падение сети и падением узла:
 
 <img src="images/system-of-2.png" alt="replication" style="max-height: 100px;">
 
-It is rare to make further assumptions about communication links. We could assume that links only work in one direction, or we could introduce different communication costs (e.g. latency due to physical distance) for different links. However, these are rarely concerns in commercial environments except for long-distance links (WAN latency) and so I will not discuss them here; a more detailed model of costs and topology allows for better optimization at the cost of complexity.
+Редко делаются дальнейшие предположения о коммуникационных связях. Мы можем предположить что связи работают только в одну сторону или мы можем ввести различную "стоимость" коммуникации(например отзывчивость из-за физического растояния). Однако это довольно редкие положения в коммерческих средах, исключением будет только крайне протяженные связи(гео-разнесенные) так как появляется "WAN latency"(задержки изза отправки данных по глобальной сети) и в этой книге не будет идти речь о них; более детальные модели включающие оценку накладных расходов и топоплогии позволяют лучше оптимизировать расходы на передачу данных.
 
-### Timing / ordering assumptions
+### Время и порядок
 
-One of the consequences of physical distribution is that each node experiences the world in a unique manner. This is inescapable, because information can only travel at the speed of light. If nodes are at different distances from each other, then any messages sent from one node to the others will arrive at a different time and potentially in a different order at the other nodes.
+Одним из последствий физического разделения является то что каждый узел воспринимает мир уникальным образом. Это неизбежно, потому что информаация распространяется не быстрее скорости света. Если узлы находятся на разных растояниях друг от друга, тогда любые сообщения от одного узла к другим будут приходить в разное время и потенциально в разном порядке.
 
-Timing assumptions are a convenient shorthand for capturing assumptions about the extent to which we take this reality into account. The two main alternatives are:
+Временные допущения являются отражением допущений модели о том насколько мы принимаем в расчет реальность. Возможны две альтернативы:
 
 <dl>
-  <dt>Synchronous system model</dt>
-  <dd>Processes execute in lock-step; there is a known upper bound on message transmission delay; each process has an accurate clock</dd>
-  <dt>Asynchronous system model</dt>
-  <dd>No timing assumptions - e.g. processes execute at independent rates; there is no bound on message transmission delay; useful clocks do not exist</dd>
+  <dt>Синхронная модель системы</dt>
+  <dd>Процессы испольняются в некотрых совпадающих шагах(шаг-в-шаг(lock-step)); есть верхняя граница задержки передачи сообщений; каждый процесс имеет точные часы</dd>
+  <dt>Асинхронная модель системы</dt>
+  <dd>Нет временных допушений - то есть процессы выполняются с независимой скоростью; не существует границы задержки передачи сообщений; несуществует точных часов</dd>
 </dl>
 
-The synchronous system model imposes many constraints on time and order. It essentially assumes that the nodes have the same experience: that messages that are sent are always received within a particular maximum transmission delay, and that processes execute in lock-step. This is convenient, because it allows you as the system designer to make assumptions about time and order, while the asynchronous system model doesn't.
+Синхронная модель системы навязывает многие ограничения на время и порядок. Она естественно пологает что узлы имеют один и тот же опыт восприятия мира: что отправленные сообщения были получены с конкретной задержкой не превышающей оговоренную, и процессы выполняются шаг-в-шаг. Это довольно удобно, потому что позволяет делать допущения о порядке и времени, что не позволяет асинхронная модель.
 
-Asynchronicity is a non-assumption: it just assumes that you can't rely on timing (or a "time sensor").
+Асинхронность это отсуствие допущений: она предпологает что ты не можешь полагатся на время(или некотрый счетчик времени).
 
-It is easier to solve problems in the synchronous system model, because assumptions about execution speeds, maximum message transmission delays and clock accuracy all help in solving problems since you can make inferences based on those assumptions and rule out inconvenient failure scenarios by assuming they never occur.
+Легче решать проблемы в синхронном подходе, потому что в нем существует много допущений о скорости исполнения, границах задержек сообщений и точности часов - все это позволяет нам исключить неудобные сценарии отказов посчитав их невозможными в нашей модели.
 
-Of course, assuming the synchronous system model is not particularly realistic. Real-world networks are subject to failures and there are no hard bounds on message delay. Real world systems are at best partially synchronous: they may occasionally work correctly and provide some upper bounds, but there will be times where messages are delayed indefinitely and clocks are out of sync. I won't really discuss algorithms for synchronous systems here, but you will probably run into them in many other introductory books because they are analytically easier (but unrealistic).
+Конечно, такая модель нереалистична. Сеть в реальном мире может исчезнуть и несуществует границ на время передачи сообщений. Системы в реальном мире в лучшем случае частично синхронны: они могут большую часть времени работать корректно и предоставлять ограничения времени доставки сообщений, но будут случаи когда сообщения будут задерживаться на неопределенный срок а часы рассинхронизироваться. В этой книге не будут обсуждаться алгоритмы для синхронных систем, но вы вероятно столкнетесь с ними в других вступительных книгах так как они проще для понимания(но нереалистичны).
 
 
 ### The consensus problem
