@@ -106,66 +106,66 @@
 Конечно, такая модель нереалистична. Сеть в реальном мире может исчезнуть и несуществует границ на время передачи сообщений. Системы в реальном мире в лучшем случае частично синхронны: они могут большую часть времени работать корректно и предоставлять ограничения времени доставки сообщений, но будут случаи когда сообщения будут задерживаться на неопределенный срок а часы рассинхронизироваться. В этой книге не будут обсуждаться алгоритмы для синхронных систем, но вы вероятно столкнетесь с ними в других вступительных книгах так как они проще для понимания(но нереалистичны).
 
 
-### The consensus problem
+### Проблема консенсуса
 
-During the rest of this text, we'll vary the parameters of the system model. Next, we'll look at how varying two system properties:
+В остальной части этого текста, мы будем вариъировать параметры модели системы. Далее мы увидим как изменяя 2 свойства системы:
 
-- whether or not network partitions are included in the failure model, and
-- synchronous vs. asynchronous timing assumptions
+- сетевые разделения могут быть включены в модель отказов либо нет, и
+- модель времени может быть синхронной или асинхронной
 
-influence the system design choices by discussing two impossibility results (FLP and CAP).
+мы можем влиять на выбор дизайна системы и порассуждаем о двух видах невозможных результатов (FLP и CAP).
 
-Of course, in order to have a discussion, we also need to introduce a problem to solve. The problem I'm going to discuss is the [consensus problem](http://en.wikipedia.org/wiki/Consensus_%28computer_science%29).
+Конечно, для дисскуссии нам необходима некотрая проблема решение который мы будем обсуждать. Проблема которую мы будем обсуждать известна как [проблема консенсуса](http://en.wikipedia.org/wiki/Consensus_%28computer_science%29).
 
-Several computers (or nodes) achieve consensus if they all agree on some value. More formally:
+Несколько компьютеров(узлов) достигают консенсуса если все они согласны насчет некотрого значения. Более формально:
 
-1. Agreement: Every correct process must agree on the same value.
-2. Integrity: Every correct process decides at most one value, and if it decides some value, then it must have been proposed by some process.
-3. Termination: All processes eventually reach a decision.
-4. Validity: If all correct processes propose the same value V, then all correct processes decide V.
+1. Соглашение: Каждый корректный процесс должен быть согласен с одним и тем же значением что и другие.
+2. Целостность: Каждый корректный процесс выбрать не более одного значения, и если он выбирает некотрое значение то оно должно быть предложено некотрым процессом.
+3. Завершение: Все процессы должны в конечном счете принять решение.
+4. Обоснованность: Если все корректные процессы предлагают значение V, тогда все корректные процессы должны принять значение V.
 
-The consensus problem is at the core of many commercial distributed systems. After all, we want the reliability and performance of a distributed system without having to deal with the consequences of distribution (e.g. disagreements / divergence between nodes), and solving the consensus problem makes it possible to solve several related, more advanced problems such as atomic broadcast and atomic commit.
+Проблема консенсуса центральная для многих коммерческих распределенных систем. В конце концов мы хотим надежность и производительность для распределенной системы без проблем вызыванных разобщенностью между распределенными узлами (таких как согласие или несогласие между разделенными узлами), и решение проблемы консенсуса позволяет решить несколько других важных проблем таких как атомарная передача или атомарный коммит.
 
-### Two impossibility results
+### Два невозможных результата
 
-The first impossibility result, known as the FLP impossibility result, is an impossibility result that is particularly relevant to people who design distributed algorithms. The second - the CAP theorem - is a related result that is more relevant to practitioners; people who need to choose between different system designs but who are not directly concerned with the design of algorithms.
+Первый невозможный результат, известен как FLP результат - этот результат крайне важен для тех кто разрабатывает распределенные алгоритмы. Второй содержится в так называемой CAP теореме - этот результат более интересен для людей занимающейся практикой, которым необходимы выбирать между разными дизайнами системы но которые не разрабатывают новые распределенные алгоритмы.
 
-## The FLP impossibility result
+## Невозможность результата FLP
 
-I will only briefly summarize the [FLP impossibility result](http://en.wikipedia.org/wiki/Consensus_%28computer_science%29#Solvability_results_for_some_agreement_problems), though it is considered to be [more important](http://en.wikipedia.org/wiki/Dijkstra_Prize) in academic circles. The FLP impossibility result (named after the authors, Fischer, Lynch and Patterson) examines the consensus problem under the asynchronous system model (technically, the agreement problem, which is a very weak form of the consensus problem). It is assumed that nodes can only fail by crashing; that the network is reliable, and that the typical timing assumptions of the asynchronous system model hold: e.g. there are no bounds on message delay.
+Я только кратко подытожу [FLP impossibility result](http://en.wikipedia.org/wiki/Consensus_%28computer_science%29#Solvability_results_for_some_agreement_problems), как прнято считать [более важен](http://en.wikipedia.org/wiki/Dijkstra_Prize) в академических кругах. FLP (названный в честь авторов, Фишер, Линч и Паттерсон) рассматривает проблему консенсуса в асинхронной модели времени (технически, проблему согласия, которая является более слабым вариантом проблемы консенсуса). При этом допускается что узел может отказать только в случае падения; что сеть надежна и что обычные допущения асинхронной модели времени оказываются справедливы - например сообщения могут быть задержаны.
 
-Under these assumptions, the FLP result states that "there does not exist a (deterministic) algorithm for the consensus problem in an asynchronous system subject to failures, even if messages can never be lost, at most one process may fail, and it can only fail by crashing (stopping executing)".
+Учитывая эти допущения FLP гласит что "несуществует алгоритма(детерминированного) для решения проблемы консенсуса в асинхронной системе с учетом отказов, даже если сообщения никогда не могут быть потеряны, не более одного процесса может отказать и это может случится только в случае его падения(прекращения выполнения)".
 
-This result means that there is no way to solve the consensus problem under a very minimal system model in a way that cannot be delayed forever.  The argument is that if such an algorithm existed, then one could devise an execution of that algorithm in which it would remain undecided ("bivalent") for an arbitrary amount of time by delaying message delivery - which is allowed in the asynchronous system model. Thus, such an algorithm cannot exist.
+Это означает что нет способа решить проблему консенсуса для минимальной системы таким образом что в системе не будет вечных задержек. Доказательством служит то что если такой алгоритм существует то можно разработать выполнение этого алгоритма в котором он будет нерешенным для произвольного количества времени - что конечно позволительно в асинхронной модели времени. Таким образом подобный алгоритм не может существовать.
 
-This impossibility result is important because it highlights that assuming the asynchronous system model leads to a tradeoff: algorithms that solve the consensus problem must either give up safety or liveness when the guarantees regarding bounds on message delivery do not hold.
+Невозможность этого хорошо подчеркивает что допущения асинхронной модели приводят нас к компромису: алгоритм который решает проблему консенсуса должен выбирать между корректностью работы и отказоустойчивостью, когда у нас нет гарантии ограничения времени доставки сообщений.
 
-This insight is particularly relevant to people who design algorithms, because it imposes a hard constraint on the problems that we know are solvable in the asynchronous system model. The CAP theorem is a related theorem that is more relevant to practitioners: it makes slightly different assumptions (network failures rather than node failures), and has more clear implications for practitioners choosing between system designs.
+Понимание этого обычно важно для людей который проектируют алгоритмы, потому что это навязывает очень сложные ограничения для разрешения известных нам проблем в асинхронной модели. CAP теорема более важна для практиков: она делает другие допущения (там предпологаются сетевые отказы, а не отказы отдельных узлов), и делаются более четкие выводы для программистов проектирующих системы.
 
-## The CAP theorem
+## CAP теорема
 
-The CAP theorem was initially a conjecture made by computer scientist Eric Brewer. It's a popular and fairly useful way to think about tradeoffs in the guarantees that a system design makes. It even has a [formal proof](https://www.google.com/search?q=Brewer's+conjecture+and+the+feasibility+of+consistent%2C+available%2C+partition-tolerant+web+services) by [Gilbert](http://www.comp.nus.edu.sg/~gilbert/biblio.html) and [Lynch](http://en.wikipedia.org/wiki/Nancy_Lynch) and no, [Nathan Marz](http://nathanmarz.com/) didn't debunk it, in spite of what [a particular discussion site](http://news.ycombinator.com/) thinks.
+CAP теорема изначально была гипотезой высказанной ученым Эриком Брюером. Это популярная и достаточно удобный способ думать о компромиссе в гарантиях которые дает нам модель системы. Существует также [строгое доказательство](https://www.google.com/search?q=Brewer's+conjecture+and+the+feasibility+of+consistent%2C+available%2C+partition-tolerant+web+services), по [Гилберту](http://www.comp.nus.edu.sg/~gilbert/biblio.html) и [Линчу](http://en.wikipedia.org/wiki/Nancy_Lynch) и нет, [Натан Марц](http://nathanmarz.com/) не развенчал его  не смотря на что так могло показатся глядя на [обсуждение на Y Combinator](http://news.ycombinator.com/).
 
-The theorem states that of these three properties:
+Теорема утверждает, что из трех свойств:
 
-- Consistency: all nodes see the same data at the same time.
-- Availability: node failures do not prevent survivors from continuing to operate.
-- Partition tolerance: the system continues to operate despite message loss due to network and/or node failure
+- Согласованность: все узлы видят одни и теже данные в одно и тоже время.
+- Доступность: отказавшие узлы не должны прекращать работу не отказавших.
+- Устойчивость к разделению: система продолжает работать даже при потери сообщений из-за сети или отказа узла
 
-only two can be satisfied simultaneously. We can even draw this as a pretty diagram, picking two properties out of three gives us three types of systems that correspond to different intersections:
+система может удовлетворять только двум одновременно. Мы можем выразить это в виде диаграммы где каждое свойство по парно пересекается с каждым - пересечения дают нам три вида возможных систем:
 
 ![CAP theorem](images/CAP.png)
 
-Note that the theorem states that the middle piece (having all three properties) is not achievable. Then we get three different system types:
+Обратите внимание что теорема утверждает что средняя часть(где все свойства пересекаются) не достижима. Остаются 3 возможных типа систем:
 
-- CA (consistency + availability). Examples include full strict quorum protocols, such as two-phase commit.
-- CP (consistency + partition tolerance). Examples include majority quorum protocols in which minority partitions are unavailable such as Paxos.
-- AP (availability + partition tolerance). Examples include protocols using conflict resolution, such as Dynamo.
+- CA (согласованность + доступность). Примером может служить строгие протоколы полного кворума, такие как двухфазный коммит.
+- CP (согласованность + устойчивость к разделению). Примером может служить алгоритмы мажоритарного коммита когда меньшая часть кворума недоступна (Paxos).
+- AP (доступность + устойчивость к разделению). Примером могут являтся протоколы которые используют ращрешение конфликтов, такие как Dynamo.
 
-The CA and CP system designs both offer the same consistency model: strong consistency. The only difference is that a CA system cannot tolerate any node failures; a CP system can tolerate up to `f` faults given `2f+1` nodes in a non-Byzantine failure model (in other words, it can tolerate the failure of a minority `f` of the nodes as long as majority `f+1` stays up). The reason is simple:
+CA и CP относятся к одной модели согласованности: строгая согласованность. Единственное отличие что CA системы не устойчивы к любым отказам; а CP системы могут устоять при `f` неисправностях на `2f+1` узлах в невизантийской модели отказов(другими словами, при падении менее половины узлов система остается доступной). Причины этого просты:
 
-- A CA system does not distinguish between node failures and network failures, and hence must stop accepting writes everywhere to avoid introducing divergence (multiple copies). It cannot tell whether a remote node is down, or whether just the network connection is down: so the only safe thing is to stop accepting writes.
-- A CP system prevents divergence (e.g. maintains single-copy consistency) by forcing asymmetric behavior on the two sides of the partition. It only keeps the majority partition around, and requires the minority partition to become unavailable (e.g. stop accepting writes), which retains a degree of availability (the majority partition) and still ensures single-copy consistency.
+- CA система не различает отказ узла и сети, и следовательно должна прекратить запись чего либо для избежания расхождений множественных копий. Так как нельзя определить отказал ли узел или исчезла сеть - единственны безопастным решением является прекратить запись чего либо.
+- CP система предотвращает расхождения(то есть поддерживает согласованную копию данных на одном узле) путем ассиметричного поведение с обоих сторон разделения. Меньший раздел прекращает запись а что позволяет большему сохранить возможнность записывать данные сохраняя консинтентность.
 
 I'll discuss this in more detail in the chapter on replication when I discuss Paxos. The important thing is that CP systems incorporate network partitions into their failure model and distinguish between a majority partition and a minority partition using an algorithm like Paxos, Raft or viewstamped replication. CA systems are not partition-aware, and are historically more common: they often use the two-phase commit algorithm and are common in traditional distributed relational databases.
 
