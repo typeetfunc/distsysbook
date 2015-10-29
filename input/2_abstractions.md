@@ -167,69 +167,69 @@ CA и CP относятся к одной модели согласованно�
 - CA система не различает отказ узла и сети, и следовательно должна прекратить запись чего либо для избежания расхождений множественных копий. Так как нельзя определить отказал ли узел или исчезла сеть - единственны безопастным решением является прекратить запись чего либо.
 - CP система предотвращает расхождения(то есть поддерживает согласованную копию данных на одном узле) путем ассиметричного поведение с обоих сторон разделения. Меньший раздел прекращает запись а что позволяет большему сохранить возможнность записывать данные сохраняя консинтентность.
 
-I'll discuss this in more detail in the chapter on replication when I discuss Paxos. The important thing is that CP systems incorporate network partitions into their failure model and distinguish between a majority partition and a minority partition using an algorithm like Paxos, Raft or viewstamped replication. CA systems are not partition-aware, and are historically more common: they often use the two-phase commit algorithm and are common in traditional distributed relational databases.
+Более подробно об этом будет идти речь в главе о репликации когда мы будем разговаривать о Paxos. важным является то что CP системы включают в своюй модель отказов разделения сети и способна отличить большую партицию от меньшей используя алгоритмы вроде Paxos, Raft или viewstamped репликацию. CA системы ни знают ничего о разделении и исторически чаще применяются: они чаще используют алгоритмы двух-фазного коммита и используются в классических реляционных распределенных базах данных.
 
 
 
-Assuming that a partition occurs, the theorem reduces to a binary choice between availability and consistency.
+В предположении, что произошел раздел сети теорема сводится к выбору между корректностью и доступностью.
 
-![Based on http://blog.mikiobraun.de/2013/03/misconceptions-about-cap-theorem.html](images/CAP_choice.png)
-
-
-I think there are four conclusions that should be drawn from the CAP theorem:
-
-First, that *many system designs used in early distributed relational database systems did not take into account partition tolerance* (e.g. they were CA designs). Partition tolerance is an important property for modern systems, since network partitions become much more likely if the system is geographically distributed (as many large systems are).
-
-Second, that *there is a tension between strong consistency and high availability during network partitions*. The CAP theorem is an illustration of the tradeoffs that occur between strong guarantees and distributed computation.
-
-In some sense, it is quite crazy to promise that a distributed system consisting of independent nodes connected by an unpredictable network "behaves in a way that is indistinguishable from a non-distributed system".
-
-![From the Simpsons episode Trash of the Titans](images/news_120.jpg)
-
-Strong consistency guarantees require us to give up availability during a partition. This is because one cannot prevent divergence between two replicas that cannot communicate with each other while continuing to accept writes on both sides of the partition.
-
-How can we work around this? By strengthening the assumptions (assume no partitions) or by weakening the guarantees. Consistency can be traded off against availability (and the related capabilities of offline accessibility and low latency). If "consistency" is defined as something less than "all nodes see the same data at the same time" then we can have both availability and some (weaker) consistency guarantee.
-
-Third, that *there is a tension between strong consistency and performance in normal operation*.
-
-Strong consistency / single-copy consistency requires that nodes communicate and agree on every operation. This results in high latency during normal operation.
-
-If you can live with a consistency model other than the classic one; a consistency model that allows replicas to lag or to diverge, then you can reduce latency during normal operation and maintain availability in the presence of partitions.
-
-When fewer messages and fewer nodes are involved, an operation can complete faster. But the only way to accomplish that is to relax the guarantees: let some of the nodes be contacted less frequently, which means that nodes can contain old data.
-
-This also makes it possible for anomalies to occur. You are no longer guaranteed to get the most recent value. Depending on what kinds of guarantees are made, you might read a value that is older than expected, or even lose some updates.
+![Основано на http://blog.mikiobraun.de/2013/03/misconceptions-about-cap-theorem.html](images/CAP_choice.png)
 
 
+Мы можем сделать из CAP теоремы 4 вывода:
+
+Во-первых, то что *многие модели систем, которые использовались в ранних распределенных реляционных базах данных не принимают во внимание разделение сети* (так как это CA системы). Устойчивость к разделению крайне важное свойство для современной системы, так как разделение становится намного более вероятным в случае географической распределенности (что характерно для очень больших систем).
+
+Во-вторых, то что *есть противоречие между строгой согласованностью и высокой доступностью во время сетевого разделения*. CAP теорема демонстрирует нам компромиссы между строгими гарантиями корректности и распределенными вычислениями.
+
+В каком-то смысле, сумашествием было бы сказать, что распределенная система состоящая из независимых узлов соединненых ненадежной сетью "ведет себя таким же образом как и система работающая на одной машине".
+
+![Из эпизода Симпсонов "Trash of the Titans"](images/news_120.jpg)
+
+Гарантии строгой согласованности заставляют нас отказатся от доступности во время разделения кластера. Это единственное что может предотвратить расхождение между двумя репликами, которые не могут сообщатся друг с другом и в тоже время продолжают записывать данные находясь по обе стороны от разделения.
+
+Как мы можем обойти это? Укрепляя предположения о невозможности разделения или ослабляя гарантии согласованности. Согласованность вступает в противоречие с доступностью (и связанными возможностями - такими как оффлайн-доступность и низкие задержки). Если "согласованость" определить как что-то меньшее, чем "все узлы видят одни и теже данные в одно и тоже время" мы можем получить доступность и некотрые (слабые) гарантии согласованности.
+
+В-третьих, что существует также противоречие между строгой согласованностью и скоростью выполнения операции в нормальном режиме(то есть без разделения).
+
+Строгая согласованность требует чтобы все узлы были оповещены и согласны на каждую операцию. В результате мы получим высокие степень задержки для типичной операции.
+
+Если вы можете работать с моделью консистентности отличной от классической - с такой моделью что позволяет данным в репликах задерживатся относительно друг друга или даже расходится, тогда вы можете сократить задержки для операций в условиях рабочей сети и поддерживать доступность при ее падении.
+
+Чем меньше узлов надо зайдействовать, а сообщений отправить для проведения операции - тем быстрее она будет проходить. Но единственный способ сделать это - ослабить гарантии: позволяя некотрым узламм сообщатся реже, мы приводим к тому что на некотрых узлах данные будут устаревшими.
+
+Также это делает возможным различные аномалии. Вы больше не можете гарантировано получить последнее значение. В зависимости от типа гарантий которые вам предоставляет модель согласованности вы можете даже потерять некотрые изменения.
 
 
 
-Fourth - and somewhat indirectly - that *if we do not want to give up availability during a network partition, then we need to explore whether consistency models other than strong consistency are workable for our purposes*.
 
-For example, even if user data is georeplicated to multiple datacenters, and the link between those two datacenters is temporarily out of order, in many cases we'll still want to allow the user to use the website / service. This means reconciling two divergent sets of data later on, which is both a technical challenge and a business risk. But often both the technical challenge and the business risk are manageable, and so it is preferable to provide high availability.
 
-Consistency and availability are not really binary choices, unless you limit yourself to strong consistency. But strong consistency is just one consistency model: the one where you, by necessity, need to give up availability in order to prevent more than a single copy of the data from being active. As [Brewer himself points out](http://www.infoq.com/articles/cap-twelve-years-later-how-the-rules-have-changed), the "2 out of 3" interpretation is misleading.
+Четвертое - и возможно косвенное - *если мы не хотим терять доступность во время сетевого разделения тогда мы должны изучить вопрос "а существует ли модель согласованности отличная от строгой согласованности и пригодная для наших целей?"*.
 
-If you take away just one idea from this discussion, let it be this: "consistency" is not a singular, unambiguous property. Remember:
+Для примера, даже если данные пользователя реплицированны на несколько датацентрах, и связь между датацентрами временно не доступна во многих случаях мы хотим продолжать предоставлять пользователю услугу. Это означает необходимость согласования двух расходящихся реплик - это риск как со стороны бизнеса так и со инженера. Но зачастую и мы можем решить и технические и управленческие проблемы и сделал тем самым выбор высокой доступности сервиса.
+
+Согласованность и доступность это не бинарный выбор, так как вы не ограничены строгой согласованностью. Строгая согласованность это единственная модель, в которой вы должны отказатся от доступности ради того чтобы предотвратить возможность одновременного активного существование более одной реплики данных. Как [считает сам Брюер](http://www.infoq.com/articles/cap-twelve-years-later-how-the-rules-have-changed), интерпритация теоремы как "выберите 2 из 3" вводит в заблуждение.
+
+Если вы потеряли нить дискуссии, скажем так: "согласованность" не единое и однозначное свойство. Помните:
 
 <blockquote>
   <p>
-   [ACID](http://en.wikipedia.org/wiki/ACID) consistency != <br>
-   [CAP](http://en.wikipedia.org/wiki/CAP_theorem) consistency != <br>
-   [Oatmeal](http://en.wikipedia.org/wiki/Oatmeal) consistency
+   [ACID](http://en.wikipedia.org/wiki/ACID) согласованность != <br>
+   [CAP](http://en.wikipedia.org/wiki/CAP_theorem) согласованность != <br>
+   [Oatmeal](http://en.wikipedia.org/wiki/Oatmeal) согласованность
   </p>
 </blockquote>
 
-Instead, a consistency model is a guarantee - any guarantee - that a data store gives to programs that use it.
+Модель согласованность это гарантии - любые гарантии - что данные которые хранит программа могут быть использованны этой же программой.
 
 <dl>
-  <dt>Consistency model</dt>
-  <dd>a contract between programmer and system, wherein the system guarantees that if the programmer follows some specific rules, the results of operations on the data store will be predictable</dd>
+  <dt>Модель согласованности</dt>
+  <dd>это контракт между программистом и системой, где система гарантирует программисту следование определенные специфическим правилам, которые обеспечивают предсказуемость операций над данными в системе</dd>
 </dl>
 
-The "C" in CAP is "strong consistency", but "consistency" is not a synonym for "strong consistency".
+"C" в CAP это "строгая согласованность", но "согласованность" это не синоним для "строгой согласованности".
 
-Let's take a look at some alternative consistency models.
+Давайте взглянем на другие модели согласованности.
 
 ## Strong consistency vs. other consistency models
 
