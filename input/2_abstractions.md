@@ -231,28 +231,28 @@ CA и CP относятся к одной модели согласованно�
 
 Давайте взглянем на другие модели согласованности.
 
-## Strong consistency vs. other consistency models
+## Строгая согласованность против других моделей согласованности
 
-Consistency models can be categorized into two types: strong and weak consistency models:
+Модели согласованности могут быть разделены на два типа: строгие и слабые модели согласованности:
 
-- Strong consistency models (capable of maintaining a single copy)
-  - Linearizable consistency
-  - Sequential consistency
-- Weak consistency models (not strong)
-  - Client-centric consistency models
-  - Causal consistency: strongest model available
-  - Eventual consistency models
+- Строгие модели (возможность поддерживать единственную копию)
+  - Линеаризуемая(linearizable) согласованность
+  - Последовательная(sequential) согласованность
+- Слабые модели согласованности(не строгие)
+  - Клиент-центричная(client-centric) модель согласованности
+  - Причинная(causal) согласованность: самая строгая модель из слабых
+  - Согласованность в конечном итоге(eventual)
 
-Strong consistency models guarantee that the apparent order and visibility of updates is equivalent to a non-replicated system. Weak consistency models, on the other hand, do not make such guarantees.
+Строгие модели согласованности гарантируют, что очевидный порядок и видимость изменений эквивалентен не реплицируемой системе. Слабая модель согласованности, в отличии от строгой, не дает таких гарантий.
 
-Note that this is by no means an exhaustive list. Again, consistency models are just arbitrary contracts between the programmer and system, so they can be almost anything.
+Это конечно же далеко не исчерпывающий список. Опять же, модель согласованности это просто произвольный контракт между программистом и системой - соотвественно очевидно что таких моделей может быть бесконечно много.
 
-### Strong consistency models
+### Строгие модели согласованности
 
-Strong consistency models can further be divided into two similar, but slightly different consistency models:
+Строгие модели согласованности могут быть разделены на две похожие и в тоже время немного разные модели согласованности:
 
-- *Linearizable consistency*: Under linearizable consistency, all operations **appear** to have executed atomically in an order that is consistent with the global real-time ordering of operations. (Herlihy & Wing, 1991)
-- *Sequential consistency*: Under sequential consistency, all operations **appear** to have executed atomically in some order that is consistent with the order seen at individual nodes and that is equal at all nodes. (Lamport, 1979)
+- *Линеаризуемая согласованность*: При линеаризуемой согласованности, все операции становятся **видимыми** атомарно в том порядке который согласовывается с глобальным порядком выполнения операций. (Herlihy & Wing, 1991)
+- *Последовательная согласованность*: При последовательной согласованностью, все операции становятся **видимыми** в том порядке который согласуется с порядком видимости на всех узлах и равен на всех узлах. (Lamport, 1979)
 
 The key difference is that linearizable consistency requires that the order in which operations take effect is equal to the actual real-time ordering of operations. Sequential consistency allows for operations to be reordered as long as the order observed on each node remains consistent. The only way someone can distinguish between the two is if they can observe all the inputs and timings going into the system; from the perspective of a client interacting with a node, the two are equivalent.
 
