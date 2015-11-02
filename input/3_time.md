@@ -1,24 +1,24 @@
-# %chapter_number%. Time and order
+# %chapter_number%. Время и порядок
 
-What is order and why is it important?
+Что означет для нас порядок и почему он важен?
 
-What do you mean "what is order"?
+Что мы хотим сказать этим вопросом?
 
-I mean, why are we so obsessed with order in the first place? Why do we care whether A happened before B? Why don't we care about some other property, like "color"?
+Почему мы так фокусируемся на порядке в первую очередь? Почему нам важно знать что A случилось раньше B? Почему мы не беспокоимся о другом свойстве, таком как цвет?
 
-Well, my crazy friend, let's go back to the definition of distributed systems to answer that.
+Хорошо, мои сумасшедшие друзья, давайте вернемся назад к определению распределенной системы чтобы ответить на этот вопрос.
 
-As you may remember, I described distributed programming as the art of solving the same problem that you can solve on a single computer using multiple computers.
+Как мы можем помнить, распределенное программирование описывалось как искуство решать тех же задач что вы решаете на одном компьютере на многих компьютерах.
 
-This is, in fact, at the core of the obsession with order. Any system that can only do one thing at a time will create a total order of operations. Like people passing through a single door, every operation will have a well-defined predecessor and successor. That's basically the programming model that we've worked very hard to preserve.
+Этот факт основа наша одержимост идеей порядка. Любая система, которая может делать только одну операцию в один момент времени создает абсолютный порядок операций. Подобно людям проходящим через одну дверь, каждая операция имеет определенных предшественника и последователя. Это базовая модель для программирования и потрачено много усилий чтобы она была сохранена.
 
-The traditional model is: a single program, one process, one memory space running on one CPU. The operating system abstracts away the fact that there might be multiple CPUs and multiple programs, and that the memory on the computer is actually shared among many programs. I'm not saying that threaded programming and event-oriented programming don't exist; it's just that they are special abstractions on top of the "one/one/one" model. Programs are written to be executed in an ordered fashion: you start from the top, and then go down towards the bottom.
+Традиционная модель это: одна программа, один процесс, одно пространство в памяти, один вычислительный процесс. Операционная система абстрагирует, пряча от нас, тот факт что может быть много CPU или много программ, и память на самом деле может быть разделена между программами. Мы не говорим, что несуществует программ использующих множество потоков или событийно-ориентированную парадигму; просто это все специальная абстракция поверх модели "one/one/one"(одна программа, одна память, один CPU). Программы написаны чтобы исполнятся в определенном порядке: исполнение начинается с верхней строчки и переходит вниз до самой нижней.
 
-Order as a property has received so much attention because the easiest way to define "correctness" is to say "it works like it would on a single machine". And that usually means that a) we run the same operations and b) that we run them in the same order - even if there are multiple machines.
+Порядок, как свойство получает так много внимания, потому что простейший способ доказать "корректность" работы это сказать "это работает также как и работало бы на одной машине". Ичто обычно означает что а) мы запускаем на всегда одни и теже операции и б) мы их запускаем в одинаковом порядке - даже запуская программу на нескольких машинах.
 
-The nice thing about distributed systems that preserve order (as defined for a single system) is that they are generic. You don't need to care about what the operations are, because they will be executed exactly like on a single machine. This is great because you know that you can use the same system no matter what the operations are.
+Хорошим свойством для распределенной системы, которая сохраняет порядок операций, является то что она универсальна. Вам можно не думать о том что за операции надо выполнять с ее помощью, потому что они будут выполнены как будто на одной машине. Это великолепно потому что вы можете использовать одну и ту же системы для различных операций.
 
-In reality, a distributed program runs on multiple nodes; with multiple CPUs and multiple streams of operations coming in. You can still assign a total order, but it requires either accurate clocks or some form of communication. You could timestamp each operation using a completely accurate clock then use that to figure out the total order. Or you might have some kind of communication system that makes it possible to assign sequential numbers as in a total order.
+В реальности, распределенные программы запускаются на распределенных узлах; с многими CPU и многими потоками операций вместе с тем. Вы попрежнему можете назначать абсолютный порядок операций, но это требует либо точных часов или особых форм сообщения. Вы могли бы присвоить каждой операции временную метку использую абсолютно точные часы чтобы определить глобальный порядок. Или вы можете какуюто систему коммуникаций между узлами которая может сделать возможным назначать глобальные порядковые номера для операций.
 
 ## Total and partial order
 
