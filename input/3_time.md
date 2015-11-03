@@ -10,7 +10,7 @@
 
 Как мы можем помнить, распределенное программирование описывалось как искуство решать тех же задач что вы решаете на одном компьютере на многих компьютерах.
 
-Этот факт основа наша одержимост идеей порядка. Любая система, которая может делать только одну операцию в один момент времени создает абсолютный порядок операций. Подобно людям проходящим через одну дверь, каждая операция имеет определенных предшественника и последователя. Это базовая модель для программирования и потрачено много усилий чтобы она была сохранена.
+Этот факт - основа нашей одержимости идеей порядка. Любая система, которая может делать только одну операцию в один момент времени создает абсолютный порядок операций. Подобно людям проходящим через одну дверь, каждая операция имеет определенных предшественника и последователя. Это базовая модель для программирования и потрачено много усилий чтобы она была сохранена.
 
 Традиционная модель это: одна программа, один процесс, одно пространство в памяти, один вычислительный процесс. Операционная система абстрагирует, пряча от нас, тот факт что может быть много CPU или много программ, и память на самом деле может быть разделена между программами. Мы не говорим, что несуществует программ использующих множество потоков или событийно-ориентированную парадигму; просто это все специальная абстракция поверх модели "one/one/one"(одна программа, одна память, один CPU). Программы написаны чтобы исполнятся в определенном порядке: исполнение начинается с верхней строчки и переходит вниз до самой нижней.
 
@@ -18,69 +18,69 @@
 
 Хорошим свойством для распределенной системы, которая сохраняет порядок операций, является то что она универсальна. Вам можно не думать о том что за операции надо выполнять с ее помощью, потому что они будут выполнены как будто на одной машине. Это великолепно потому что вы можете использовать одну и ту же системы для различных операций.
 
-В реальности, распределенные программы запускаются на распределенных узлах; с многими CPU и многими потоками операций вместе с тем. Вы попрежнему можете назначать абсолютный порядок операций, но это требует либо точных часов или особых форм сообщения. Вы могли бы присвоить каждой операции временную метку использую абсолютно точные часы чтобы определить глобальный порядок. Или вы можете какуюто систему коммуникаций между узлами которая может сделать возможным назначать глобальные порядковые номера для операций.
+В реальности, распределенные программы запускаются на распределенных узлах; с многими CPU и многими потоками операций вместе с тем. Вы попрежнему можете назначать абсолютный порядок операций, но это требует либо точных часов или особых форм сообщения. Вы могли бы присвоить каждой операции временную метку используя абсолютно точные часы, чтобы определить глобальный порядок. Или вы можете какуюто систему коммуникаций между узлами которая может сделать возможным назначать глобальные порядковые номера для операций.
 
-## Total and partial order
+## Абсолютный(полный) и частичный порядок
 
-The natural state in a distributed system is [partial order](http://en.wikipedia.org/wiki/Partially_ordered_set). Neither the network nor independent nodes make any guarantees about relative order; but at each node, you can observe a local order.
+Естественное состояние для распредленной системы это [частичный порядок](http://en.wikipedia.org/wiki/Partially_ordered_set). Ни сеть ни независимость различных узлов не позволяют намм говорит о каких либо гарантиях относительно порядка; но для каждого узла вы можете соблюдать локальный порядок.
 
-A [total order](http://en.wikipedia.org/wiki/Total_order) is a binary relation that defines an order for every element in some set.
+[Абсолютный(полный) порядок](http://en.wikipedia.org/wiki/Total_order) это бинарное отношение, которое определяет порядок для каждого элемента в некотром множестве.
 
-Two distinct elements are **comparable** when one of them is greater than the other. In a partially ordered set, some pairs of elements are not comparable and hence a partial order doesn't specify the exact order of every item.
+Два уникальных элемента являются **сравниваемыми** когда один из них больше другого. В частично упорядоченном множестве, некотрые пары элементов не являются сравниваемыми и следовательно частичный порядок не указывает точный порядок следования для каждого элемента.
 
-Both total order and partial order are [transitive](http://en.wikipedia.org/wiki/Transitive_relation) and [antisymmetric](http://en.wikipedia.org/wiki/Antisymmetric_relation). The following statements hold in both a total order and a partial order for all a, b and c in X:
+И абсолютный и частичный порядок [транзитивны](http://en.wikipedia.org/wiki/Transitive_relation) и [антисиметричны](http://en.wikipedia.org/wiki/Antisymmetric_relation). Следующие утверждения верны и для частичного и абсолютного порядка для всех a, b, c из X:
 
-    If a ≤ b and b ≤ a then a = b (antisymmetry);
-    If a ≤ b and b ≤ c then a ≤ c (transitivity);
+    Если a ≤ b и b ≤ a тогда a = b (антисиметричность);
+    Если a ≤ b и b ≤ c тогда a ≤ c (транзитивность);
 
-However, a total order is [total](http://en.wikipedia.org/wiki/Total_relation):
+Однако, абсолютный порядок также является [полным отношением](http://en.wikipedia.org/wiki/Total_relation):
 
-    a ≤ b or b ≤ a (totality) for all a, b in X
+    a ≤ b или b ≤ a (полнота) для всех a, b в X
 
-while a partial order is only [reflexive](http://en.wikipedia.org/wiki/Reflexive_relation):
+в то время как частичный порядок обладает только [свойством рефлексивности](http://en.wikipedia.org/wiki/Reflexive_relation):
 
-    a ≤ a (reflexivity) for all a in X
+    a ≤ a (рефлексивность) для всех a в X
 
-Note that totality implies reflexivity; so a partial order is a weaker variant of total order.
-For some elements in a partial order, the totality property does not hold - in other words, some of the elements are not comparable.
+Заметим что полнота включает в себя рефлексивность; то есть частичный порядок более слабый вариант полного порядка.
+Для некотрых элементов в частичном порядке, свойство полноты не будет выполнено - иными словами, некотрые элементы оказываются не сравнимыми.
 
-Git branches are an example of a partial order. As you probably know, the git revision control system allows you to create multiple branches from a single base branch - e.g. from a master branch. Each branch represents a history of source code changes derived based on a common ancestor:
+Ветки Git это пример частично упорядоченного порядка. Как вы возможно знаете, система контроля ревизий git позволяет создавать множество ветвей из одной базовой ветки - например из мастер ветки. Каждая ветвь представляет собой отдельную историю изменений исходного кода основанную на общем предке:
 
     [ branch A (1,2,0)]  [ master (3,0,0) ]  [ branch B (1,0,2) ]
     [ branch A (1,1,0)]  [ master (2,0,0) ]  [ branch B (1,0,1) ]
                       \  [ master (1,0,0) ]  /
 
-The branches A and B were derived from a common ancestor, but there is no definite order between them: they represent different histories and cannot be reduced to a single linear history without additional work (merging). You could, of course, put all the commits in some arbitrary order (say, sorting them first by ancestry and then breaking ties by sorting A before B or B before A) - but that would lose information by forcing a total order where none existed.
+Ветви A и B были получены из общего предка, но нигде неопределенн порядок между ними: они представляют разные истории и не могут быть сведены к одной последовательной истории без дополнительной работы(мерджа). Конечно можно попытатся расположить коммиты в определенном порядке (скажем сортирую сначала по порядку в предке а затем расположить все измения из А и только потом из Б - или наоброт) - но это будет сопровождатся потерей информации так как вы пытаетесь имитировать порядок там где его нету.
 
-In a system consisting of one node, a total order emerges by necessity: instructions are executed and messages are processed in a specific, observable order in a single program. We've come to rely on this total order - it makes executions of programs predictable. This order can be maintained on a distributed system, but at a cost: communication is expensive, and time synchronization is difficult and fragile.
+В системе, состоящей из одного узла, абсолютный порядок возникает неизбежно: так как инструкции исполняются а сообщения отправляются в определенном порядке. Мы можем положится на абсолютный порядок вычислений - он делает выполнение программ предсказуемым. Такой порядок может поддерживаться и в распределенной системе, но это будет иметь свою цену: коммуникации крайне дороги, а синхронизация времени крайне сложна и хрупка.
 
-# What is time?
+# Что такое время?
 
-Time is a source of order - it allows us to define the order of operations - which coincidentally also has an interpretation that people can understand (a second, a minute, a day and so on).
+Время это источник порядка - оно позволяет нам опрделить порядок выполнения операций - который по случайному совпадению может пониматся людьми (секунды, минуты и.т.д).
 
-In some sense, time is just like any other integer counter. It just happens to be important enough that most computers have a dedicated time sensor, also known as a clock. It's so important that we've figured out how to synthesize an approximation of the same counter using some imperfect physical system (from wax candles to cesium atoms). By "synthesize", I mean that we can approximate the value of the integer counter in physically distant places via some physical property without communicating it directly.
+В некотром смысле, время похоже на любой другой счетчик. Достаточно важно, что большинство компьютеров имеет встроенный сенсор времени, известный как часы. Это настолько важно что человечество научилось синтезировать такой счетчик с некотрой погрешностью используя некотрые физические обьекты (от восковой свечи до атома цезия). Под "синтезировать" понимается что мы можем получить приблизительное значение счетчика в двух физически отдаленных местах используя некотрое физическое свойство без прямой коммуникации.
 
-Timestamps really are a shorthand value for representing the state of the world from the start of the universe to the current moment - if something occurred at a particular timestamp, then it was potentially influenced by everything that happened before it. This idea can be generalized into a causal clock that explicitly tracks causes (dependencies) rather than simply assuming that everything that preceded a timestamp was relevant. Of course, the usual assumption is that we should only worry about the state of the specific system rather than the whole world.
+Временная метка это сокращенное значение для представления состояния мира с появления вселенной до текущего момента - если чтото происходит в определленый момент времени, тогда на это могло повлиять все что произощло до этого момента. Эта идея может быть обобщена до часов на основе причинных связей, которые явно отслеживают зависимости событиями, а не просто предпологают что все произошедшее до определнного события связано с ним. Конечно обычно предпологают, что мы должны беспокоится только о состоянии конкретной системы а не о состоянии всего мира.
 
-Assuming that time progresses at the same rate everywhere - and that is a big assumption which I'll return to in a moment - time and timestamps have several useful interpretations when used in a program. The three interpretations are:
+Если предположить, что время движется везде с одинаковой скоростью - и это крайне большое предположение к оторому мы еще вернемся -  время и временные метки могут интерпритироватся несколькими полезными нам способами, как:
 
-- Order
-- Duration
-- Interpretation
+- Порядок
+- Продолжительность
+- Интерпритация
 
-*Order*. When I say that time is a source of order, what I mean is that:
+*Порядок*. Когда мы говорили, что время это источник порядка имелось ввиду что:
 
-- we can attach timestamps to unordered events to order them
-- we can use timestamps to enforce a specific ordering of operations or the delivery of messages (for example, by delaying an operation if it arrives out of order)
-- we can use the value of a timestamp to determine whether something happened chronologically before something else
+- мы можем присваивать временные метки на неупорядоченные события и тем самым упорядочить их
+- мы можем использовать временные метки для обеспечения конкретного порядка операций или доставки сообщений(например путем задержки операции если она поступила не в свою очередь)
+- мы можем использовать значение времени чтобы определить, что предшествовало в хронологическом порядке какому либо событию
 
-*Interpretation* - time as a universally comparable value. The absolute value of a timestamp can be interpreted as a date, which is useful for people. Given a timestamp of when a downtime started from a log file, you can tell that it was last Saturday, when there was a [thunderstorm](https://twitter.com/AWSFail/statuses/218915147060752384).
+*Интерпритация* - время это универсальное сравниваемое значение. Абсолютное значение времени может интерпретироватся как дата, что может полезно для людей. Учитывая временную метку начала даунтайма из логов мы можете сказать, что он произошел в прошлую субботу во время  [thunderstorm](https://twitter.com/AWSFail/statuses/218915147060752384).
 
-*Duration* - durations measured in time have some relation to the real world. Algorithms generally don't care about the absolute value of a clock or its interpretation as a date, but they might use durations to make some judgment calls. In particular, the amount of time spent waiting can provide clues about whether a system is partitioned or merely experiencing high latency.
+*Продолжительность* - продолжительность измеряемая во времени имеет отношение к реальному миру. Алгоритмы как правило не беспокоятся о абсолютном значении часов или интерпритации их как даты, но продолжительность может помочь сделать программе несколько полезных выводов. К примеру, по времени потраченому на ожидание ответа можно предположить является система разделенной или просто велики задержки коммуникации.
 
-By their nature, the components of distributed systems do not behave in a predictable manner. They do not guarantee any specific order, rate of advance, or lack of delay. Each node does have some local order - as execution is (roughly) sequential - but these local orders are independent of each other.
+Природа компонентов распределенных систем такова что они не могут вести себя предсказуемым способом. Они не гарантируют какой либо определенный порядок, скорость или отсутсвие задержек. Каждый узел имеет некотрый локальный порядок - приблизительно последовательное выолнение - но этот локальный порядок независим от порядка других узлов.
 
-Imposing (or assuming) order is one way to reduce the space of possible executions and possible occurrences. Humans have a hard time reasoning about things when things can happen in any order - there just are too many permutations to consider.
+Установление (или допущение) порядка это единственный способ сократить пространство возможных путей исполнения и путей возникновения. Людям тяжело рассуждать о вещах который могут происходить в любом порядке - так как в таком случае число возможных перстановок крайне велико - больше чем может вместить человеческий мозг.
 
 ## Does time progress at the same rate everywhere?
 
