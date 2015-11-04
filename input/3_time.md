@@ -56,7 +56,7 @@
 
 # Что такое время?
 
-Время это источник порядка - оно позволяет нам опрделить порядок выполнения операций - который по случайному совпадению может пониматся людьми (секунды, минуты и.т.д).
+Время это источник порядка - оно позволяет нам опрделить порядок выполнения операций - который по случайному совпадению может пониматься людьми (секунды, минуты и.т.д).
 
 В некотром смысле, время похоже на любой другой счетчик. Достаточно важно, что большинство компьютеров имеет встроенный сенсор времени, известный как часы. Это настолько важно что человечество научилось синтезировать такой счетчик с некотрой погрешностью используя некотрые физические обьекты (от восковой свечи до атома цезия). Под "синтезировать" понимается что мы можем получить приблизительное значение счетчика в двух физически отдаленных местах используя некотрое физическое свойство без прямой коммуникации.
 
@@ -82,31 +82,31 @@
 
 Установление (или допущение) порядка это единственный способ сократить пространство возможных путей исполнения и путей возникновения. Людям тяжело рассуждать о вещах который могут происходить в любом порядке - так как в таком случае число возможных перстановок крайне велико - больше чем может вместить человеческий мозг.
 
-## Does time progress at the same rate everywhere?
+## Везде ли одинаково течет время?
 
-We all have an intuitive concept of time based on our own experience as individuals. Unfortunately, that intuitive notion of time makes it easier to picture total order rather than partial order. It's easier to picture a sequence in which things happen one after another, rather than concurrently. It is easier to reason about a single order of messages than to reason about messages arriving in different orders and with different delays.
+Все мы имеем интуитивное понимание времени, основывающееся на нашем личном опыте. К сожалению, это интуитивное понимание облегчает представление абсолютного(глобального) порядка, но не частичного. Гораздо проще представить последовательность, в которой события происходят одно за другим, а не одновременно. Гораздо проще рассуждать о сообщениях, поступаемых в единой последовательности, чем о сообщениях, поступающих в разном порядке и с разными задержками.
 
-However, when implementing distributing systems we want to avoid making strong assumptions about time and order, because the stronger the assumptions, the more fragile a system is to issues with the "time sensor" - or the onboard clock. Furthermore, imposing an order carries a cost. The more temporal nondeterminism that we can tolerate, the more we can take advantage of distributed computation.
+Однако, разрабатывая распределенную систему, хочется обойтись без сильных допущений касательно времени и порядка, потому что, чем сильнее допущения, тем более уязвима становится система к проблемам с временем. Более того, наложение порядка влечет за собой дополнительные расходы. Чем больше непоследовательных действий мы можем обрабатывать, тем больше возможность мы сможем получить от распределенной стистемы.
 
-There are three common answers to the question "does time progress at the same rate everywhere?". These are:
+Есть три основных ответа на вопрос "везде ли время течет одинаково?":
 
-- "Global clock": yes
-- "Local clock": no, but
-- "No clock": no!
+- "Глобальные часы": да
+- "Локальные часы": нет, но...
+- "В отсутствии часов": нет!
 
-These correspond roughly to the three timing assumptions that I mentioned in the second chapter: the synchronous system model has a global clock, the partially synchronous model has a local clock, and in the asynchronous system model one cannot use clocks at all. Let's look at these in more detail.
+Они примерно соответствуют трем временным моделям, о которых говорилось во второй главе: модель синхронной системы работает с глобальными часами, частчно синхронная система - с локальными часами, ассинхронная система вообще не может использовать часы. Давайте разберем эти предположения подробнее.
 
-### Time with a "global-clock" assumption
+### Время в модели "глобальных часов"
 
-The global clock assumption is that there is a global clock of perfect accuracy, and that everyone has access to that clock. This is the way we tend to think about time, because in human interactions small differences in time don't really matter.
+Модель глобальных часов подразумевает существование абсолютно точных мировых часов, к которым есть доступ у каждого. Это то, как мы привыкли думать о времени, потому что в повседневной жизни небольшие различия во времени не имеют значения.
 
 ![Global clock](images/global-clock.png)
 
-The global clock is basically a source of total order (exact order of every operation on all nodes even if those nodes have never communicated).
+Глобальные часы по факту являются источником общего порядка(точный порядок на каждом узле, не смотря на то, что они даже не взаимодействуют друг с другом).
 
-However, this is an idealized view of the world: in reality, clock synchronization is only possible to a limited degree of accuracy. This is limited by the lack of accuracy of clocks in commodity computers, by latency if a clock synchronization protocol such as [NTP](http://en.wikipedia.org/wiki/Network_Time_Protocol) is used and fundamentally by [the nature of spacetime](http://en.wikipedia.org/wiki/Time_dilation).
+Однако, это идеализированное предствление мира: на самом деле синхронизация часов возможно только с ограниченной точностью. Ограничение обусловлено отсутствием точности в часах обычных компьютеров, а так же задержкой, если используется протокол синхронизации, например такой как [NTP](http://en.wikipedia.org/wiki/Network_Time_Protocol) и кроме того принципиально ограничено [природой пространства-времени](http://en.wikipedia.org/wiki/Time_dilation).
 
-Assuming that clocks on distributed nodes are perfectly synchronized means assuming that clocks start at the same value and never drift apart. It's a nice assumption because you can use timestamps freely to determine a global total order - bound by clock drift rather than latency - but this is a [nontrivial](http://queue.acm.org/detail.cfm?id=1773943) operational challenge and a potential source of anomalies. There are many different scenarios where a simple failure - such as a user accidentally changing the local time on a machine, or an out-of-date machine joining a cluster, or synchronized clocks drifting at slightly different rates and so on that can cause hard-to-trace anomalies.
+Предположение, что часы в распределенной системе идеально синхронизированы, подразумевает собой предположение, что отсчет времени начался одновременни, а так же, что часы никогда не смогут разойтись. Это полезное допущение, потому что, с ним появляется возможность использовать временные метки без ограничений, чтобы определять глобальный общий порядок.  It's a nice assumption because you can use timestamps freely to determine a global total order - bound by clock drift rather than latency - но это [не тривиальная](http://queue.acm.org/detail.cfm?id=1773943) задача и потенциальное место для аномалий. Существует множество различных сценариев, когда небольшая неполадка - например, случайное изменение пользователем локального времени на компьютере, или добавление в кластер машины с опозданием, или синхронизированные часы..  There are many different scenarios where a simple failure - such as a user accidentally changing the local time on a machine, or an out-of-date machine joining a cluster, or synchronized clocks drifting at slightly different rates and so on that can cause hard-to-trace anomalies.
 
 Nevertheless, there are some real-world systems that make this assumption. Facebook's [Cassandra](http://en.wikipedia.org/wiki/Apache_Cassandra) is an example of a system that assumes clocks are synchronized. It uses timestamps to resolve conflicts between writes - the write with the newer timestamp wins. This means that if clocks drift, new data may be ignored or overwritten by old data; again, this is an operational challenge (and from what I've heard, one that people are acutely aware of). Another interesting example is Google's [Spanner](http://research.google.com/archive/spanner.html): the paper describes their TrueTime API, which synchronizes time but also estimates worst-case clock drift.
 
