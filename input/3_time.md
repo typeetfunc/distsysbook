@@ -100,36 +100,36 @@
 
 Модель глобальных часов подразумевает существование абсолютно точных мировых часов, к которым есть доступ у каждого. Это то, как мы привыкли думать о времени, потому что в повседневной жизни небольшие различия во времени не имеют значения.
 
-![Global clock](images/global-clock.png)
+![Глобальные часы](images/global-clock.png)
 
 Глобальные часы по факту являются источником общего порядка(точный порядок на каждом узле, не смотря на то, что они даже не взаимодействуют друг с другом).
 
 Однако, это идеализированное предствление мира: на самом деле синхронизация часов возможно только с ограниченной точностью. Ограничение обусловлено отсутствием точности в часах обычных компьютеров, а так же задержкой, если используется протокол синхронизации, например такой как [NTP](http://en.wikipedia.org/wiki/Network_Time_Protocol) и кроме того принципиально ограничено [природой пространства-времени](http://en.wikipedia.org/wiki/Time_dilation).
 
-Предположение, что часы в распределенной системе идеально синхронизированы, подразумевает собой предположение, что отсчет времени начался одновременни, а так же, что часы никогда не смогут разойтись. Это полезное допущение, потому что, с ним появляется возможность использовать временные метки без ограничений, чтобы определять глобальный общий порядок.  It's a nice assumption because you can use timestamps freely to determine a global total order - bound by clock drift rather than latency - но это [не тривиальная](http://queue.acm.org/detail.cfm?id=1773943) задача и потенциальное место для аномалий. Существует множество различных сценариев, когда небольшая неполадка - например, случайное изменение пользователем локального времени на компьютере, или добавление в кластер машины с опозданием, или синхронизированные часы..  There are many different scenarios where a simple failure - such as a user accidentally changing the local time on a machine, or an out-of-date machine joining a cluster, or synchronized clocks drifting at slightly different rates and so on that can cause hard-to-trace anomalies.
+Предположение, что часы в распределенной системе идеально синхронизированы, подразумевает собой предположение, что отсчет времени начался одновременни, а так же, что часы никогда не смогут разойтись. Это полезное допущение, потому что, с ним появляется возможность использовать временные метки без ограничений, чтобы определять глобальный общий порядок, будучи ограниченным только сдвигами времени, но не задержками - но это [не тривиальная](http://queue.acm.org/detail.cfm?id=1773943) задача и потенциальное место для аномалий. Существует множество различных сценариев, когда небольшая неполадка - например, случайное изменение пользователем локального времени на компьютере, или добавление в кластер машины с опозданием, или синхронизированные часы слегка разъехались, таким образом приводя к сложно обнаружимым аномалиям.
 
-Nevertheless, there are some real-world systems that make this assumption. Facebook's [Cassandra](http://en.wikipedia.org/wiki/Apache_Cassandra) is an example of a system that assumes clocks are synchronized. It uses timestamps to resolve conflicts between writes - the write with the newer timestamp wins. This means that if clocks drift, new data may be ignored or overwritten by old data; again, this is an operational challenge (and from what I've heard, one that people are acutely aware of). Another interesting example is Google's [Spanner](http://research.google.com/archive/spanner.html): the paper describes their TrueTime API, which synchronizes time but also estimates worst-case clock drift.
+Тем не менее, есть некоторые системы, в которые принято такое допущение. В их числе [Cassandra](http://en.wikipedia.org/wiki/Apache_Cassandra), созданная в Facebook - это пример системы, которая допускает, что часы полностью синхронизирована. Она использует метки времени для разрешения конфликтов между конкурируещими источниками информации - актуальной считается информация, с самым поздним временем создания. Это значит, что если часа все же разъехались, по-настоящему новые данные могут быть проигнорированы или затерты; повторюсь, это задача администрирования (and from what I've heard, one that people are acutely aware of). Другой интересный пример это Spanner, разработанный в Google. Данная [статья](http://research.google.com/archive/spanner.html) описывает TrueTime API, которое синхронизирует время, а так же оценивает максимально возможные сдвиги часов.
 
-### Time with a "Local-clock" assumption
+### Время в модели "локальных часов"
 
-The second, and perhaps more plausible assumption is that each machine has its own clock, but there is no global clock. It means that you cannot use the local clock in order to determine whether a remote timestamp occurred before or after a local timestamp; in other words, you cannot meaningfully compare timestamps from two different machines.
+Второе и, возможно, наиболее убедительное допущение - это тот случай, когда каждый узел имеет свои собственные часы, которые не являются глобальными. Это означает, что вы не можете использовать локальные часы для того, чтобы определить  когда была получена отметка времени на другом узле, до или после локальной; проще говоря вы не можете сравнивать временные метки с разных узлов.
 
-![Local clock](images/local-clock.png)
+![Локальные часы](images/local-clock.png)
 
-The local clock assumption corresponds more closely to the real world. It assigns a partial order: events on each system are ordered but events cannot be ordered across systems by only using a clock.
+Допущение о локальных часах более точно соответствует реальному миру. Оно устанавливает частичный порядок: события каждого узла упорядочены между собой, но события между различными узлами не могут быть упорядочены, полагаясь только на часы.
 
-However, you can use timestamps to order events on a single machine; and you can use timeouts on a single machine as long as you are careful not to allow the clock to jump around. Of course, on a machine controlled by an end-user this is probably assuming too much: for example, a user might accidentally change their date to a different value while looking up a date using the operating system's date control.
+Однако, вы можете использовать временные метки для определения порядка событий на одиночном узле; а также можете использовать задержки на одиночном узле до тех пор, пока вы контролируете часы и не позволяете им сбиться. Безусловно, на для машины, контролируемой конечным пользователем, это, возможно слишком сложная задача: например, пользователь мог случайно изменить ее дату, пока просматривал дату с помощью встроенных в ОС средств.
 
 
-### Time with a "No-clock" assumption
+### Время в "безчасовой" модели
 
-Finally, there is the notion of logical time. Here, we don't use clocks at all and instead track causality in some other way. Remember, a timestamp is simply a shorthand for the state of the world up to that point - so we can use counters and communication to determine whether something happened before, after or concurrently with something else.
+Наконец, существует понятие логического времени. В данном случае часы вообще не используются и вместо этого причнинно-следственная связь отслеживается каким-то другим способом. Запомните, временная метка - это просто некоторое сокращенное обозначение для состояния мира к данному моменту - поэтому мы можем использовать счтетчики и средство связи, чтобы определить, что какие-то действия произошли раньше или одновременно с другими.
 
-This way, we can determine the order of events between different machines, but cannot say anything about intervals and cannot use timeouts (since we assume that there is no "time sensor"). This is a partial order: events can be ordered on a single system using a counter and no communication, but ordering events across systems requires a message exchange.
+В этом случае мы можем определить порядок событий между различными узлами, но не можем работать с интервалами и не можем использовать временные задержки(у нас все еще нет "датчика времени"). Тут присутствует частичный порядок: события могут быть упорядочены внутри единой системы, поддержание же порядка между системами требует обмена сообщениями.
 
-One of the most cited papers in distributed systems is Lamport's paper on [time, clocks and the ordering of events](http://research.microsoft.com/users/lamport/pubs/time-clocks.pdf). Vector clocks, a generalization of that concept (which I will cover in more detail), are a way to track causality without using clocks. Cassandra's cousins Riak (Basho) and Voldemort (Linkedin) use vector clocks rather than assuming that nodes have access to a global clock of perfect accuracy. This allows those systems to avoid the clock accuracy issues mentioned earlier.
+Одна из наиболее цитируемых статей, касательно распределенных систем - это статья Лампорта о [времени, часах и упорядочении событий](http://research.microsoft.com/users/lamport/pubs/time-clocks.pdf). Векторные часты - обобщение этой концепции (которая будт мной рассмотрена позже более детально). Это способ отслеживать причинно-следственные связи, не используя часы. Родственники Cassandra Riak (Basho) и Voldemort (Linkedin) используют векторные чаты вместо допущения о том, что все узлы имеют доступ к едиными абсолютно точным часам. Это позволяет данным системам не сталкиваться с проблемами точности часов, которые были рассмотрены ранее.
 
-When clocks are not used, the maximum precision at which events can be ordered across distant machines is bound by communication latency.
+Когда часы не используются, максимальная точность, с которой могут быть упорядочены события на удаленных узлах зависит от задержки передачи сообщений.
 
 ## How is time used in a distributed system?
 
