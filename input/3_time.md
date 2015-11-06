@@ -108,58 +108,58 @@
 
 Предположение, что часы в распределенной системе идеально синхронизированы, подразумевает собой предположение, что отсчет времени начался одновременни, а так же, что часы никогда не смогут разойтись. Это полезное допущение, потому что, с ним появляется возможность использовать временные метки без ограничений, чтобы определять глобальный общий порядок, будучи ограниченным только сдвигами времени, но не задержками - но это [не тривиальная](http://queue.acm.org/detail.cfm?id=1773943) задача и потенциальное место для аномалий. Существует множество различных сценариев, когда небольшая неполадка - например, случайное изменение пользователем локального времени на компьютере, или добавление в кластер машины с опозданием, или синхронизированные часы слегка разъехались, таким образом приводя к сложно обнаружимым аномалиям.
 
-Тем не менее, есть некоторые системы, в которые принято такое допущение. В их числе [Cassandra](http://en.wikipedia.org/wiki/Apache_Cassandra), созданная в Facebook - это пример системы, которая допускает, что часы полностью синхронизирована. Она использует метки времени для разрешения конфликтов между конкурируещими источниками информации - актуальной считается информация, с самым поздним временем создания. Это значит, что если часа все же разъехались, по-настоящему новые данные могут быть проигнорированы или затерты; повторюсь, это задача администрирования (and from what I've heard, one that people are acutely aware of). Другой интересный пример это Spanner, разработанный в Google. Данная [статья](http://research.google.com/archive/spanner.html) описывает TrueTime API, которое синхронизирует время, а так же оценивает максимально возможные сдвиги часов.
+Тем не менее, есть некоторые системы, в которые принято такое допущение. В их числе [Cassandra](http://en.wikipedia.org/wiki/Apache_Cassandra), созданная в Facebook - это пример системы, которая допускает, что часы полностью синхронизирована. Она использует метки времени для разрешения конфликтов между конкурируещими источниками информации - актуальной считается информация, с самым поздним временем создания. Это значит, что если часы все же разъехались, по-настоящему новые данные могут быть проигнорированы или затерты; повторюсь, это задача администрирования (и насколько я слышал, люди остро понимают это). Другой интересный пример это Spanner, разработанный в Google. Данная [статья](http://research.google.com/archive/spanner.html) описывает TrueTime API, которое синхронизирует время, а так же оценивает максимально возможные сдвиги часов.
 
 ### Время в модели "локальных часов"
 
-Второе и, возможно, наиболее убедительное допущение - это тот случай, когда каждый узел имеет свои собственные часы, которые не являются глобальными. Это означает, что вы не можете использовать локальные часы для того, чтобы определить  когда была получена отметка времени на другом узле, до или после локальной; проще говоря вы не можете сравнивать временные метки с разных узлов.
+Второе и, возможно, наиболее убедительное допущение - это тот случай, когда каждый узел имеет свои собственные часы, которые не являются глобальными. Это означает, что вы не можете использовать локальные часы для того, чтобы определить, когда была получена отметка времени на другом узле, до или после локальной; проще говоря вы не можете сравнивать временные метки с разных узлов.
 
 ![Локальные часы](images/local-clock.png)
 
 Допущение о локальных часах более точно соответствует реальному миру. Оно устанавливает частичный порядок: события каждого узла упорядочены между собой, но события между различными узлами не могут быть упорядочены, полагаясь только на часы.
 
-Однако, вы можете использовать временные метки для определения порядка событий на одиночном узле; а также можете использовать задержки на одиночном узле до тех пор, пока вы контролируете часы и не позволяете им сбиться. Безусловно, на для машины, контролируемой конечным пользователем, это, возможно слишком сложная задача: например, пользователь мог случайно изменить ее дату, пока просматривал дату с помощью встроенных в ОС средств.
+Однако, вы можете использовать временные метки для определения порядка событий на одиночном узле; а также можете использовать таймауты(то есть опиратся на свойство "длительности времени") на одиночном узле до тех пор, пока вы контролируете часы и не позволяете им сбиться. Безусловно, для машины, контролируемой конечным пользователем, это, возможно слишком сложная задача: например, пользователь мог случайно изменить ее дату, пока просматривал ее с помощью встроенных в ОС средств.
 
 
-### Время в "безчасовой" модели
+### Время в модели "без-часов"
 
-Наконец, существует понятие логического времени. В данном случае часы вообще не используются и вместо этого причнинно-следственная связь отслеживается каким-то другим способом. Запомните, временная метка - это просто некоторое сокращенное обозначение для состояния мира к данному моменту - поэтому мы можем использовать счтетчики и средство связи, чтобы определить, что какие-то действия произошли раньше или одновременно с другими.
+Наконец, существует понятие логического времени. В данном случае часы вообще не используются и вместо этого причнинно-следственная связь отслеживается каким-то другим способом. Запомните, временная метка - это просто некоторое сокращенное обозначение для состояния мира к данному моменту - поэтому мы можем использовать счетчики и средство связи, чтобы определить, что какие-то действия произошли раньше или одновременно с другими.
 
 В этом случае мы можем определить порядок событий между различными узлами, но не можем работать с интервалами и не можем использовать временные задержки(у нас все еще нет "датчика времени"). Тут присутствует частичный порядок: события могут быть упорядочены внутри единой системы, поддержание же порядка между системами требует обмена сообщениями.
 
-Одна из наиболее цитируемых статей, касательно распределенных систем - это статья Лампорта о [времени, часах и упорядочении событий](http://research.microsoft.com/users/lamport/pubs/time-clocks.pdf). Векторные часты - обобщение этой концепции (которая будт мной рассмотрена позже более детально). Это способ отслеживать причинно-следственные связи, не используя часы. Родственники Cassandra Riak (Basho) и Voldemort (Linkedin) используют векторные чаты вместо допущения о том, что все узлы имеют доступ к едиными абсолютно точным часам. Это позволяет данным системам не сталкиваться с проблемами точности часов, которые были рассмотрены ранее.
+Одна из наиболее цитируемых статей, касательно распределенных систем - это статья Лампорта о [времени, часах и упорядочении событий](http://research.microsoft.com/users/lamport/pubs/time-clocks.pdf). Векторные часты - обобщение этой концепции (которая будет мной рассмотрена позже более детально). Это способ отслеживать причинно-следственные связи, не используя часы. Родственные Cassandra системы Riak (Basho) и Voldemort (Linkedin) используют векторные чаты вместо допущения о том, что все узлы имеют доступ к едиными абсолютно точным часам. Это позволяет данным системам не сталкиваться с проблемами точности часов, которые были рассмотрены ранее.
 
 Когда часы не используются, максимальная точность, с которой могут быть упорядочены события на удаленных узлах зависит от задержки передачи сообщений.
 
-## How is time used in a distributed system?
+## Как время используется в распределенных системах?
 
-What is the benefit of time?
+Что может дать нам время?
 
-1. Time can define order across a system (without communication)
-2. Time can define boundary conditions for algorithms
+1. Время может определять сквозной порядок(без коммуникаций)
+2. Время может определять граничные условия алгоритмов
 
-The order of events is important in distributed systems, because many properties of distributed systems are defined in terms of the order of operations/events:
+Порядок событий важен в распределенных системах, потому что многие свойства распределенных систем определенны в терминах порядка операций/событий:
 
-- where correctness depends on (agreement on) correct event ordering, for example serializability in a distributed database
-- order can be used as a tie breaker when resource contention occurs, for example if there are two orders for a widget, fulfill the first and cancel the second one
+- когда корректность зависит от соглашения о корректном порядке событий, для примера свойство сериализуемости в распределенной базе данных
+- порядок может быть использован, для связи переключения ресурсов, для примера если есть два обращения к виджету, тогда будет выполнен первое и отменено второе
 
-A global clock would allow operations on two different machines to be ordered without the two machines communicating directly. Without a global clock, we need to communicate in order to determine order.
+Глобальные часы позволяют упорядочить операции на двух разных машинах без прямой коммуникации. Без глобальных часов, нам необходимо сообщатся, чтобы определить порядок.
 
-Time can also be used to define boundary conditions for algorithms - specifically, to distinguish between "high latency" and "server or network link is down". This is a very important use case; in most real-world systems timeouts are used to determine whether a remote machine has failed, or whether it is simply experiencing high network latency. Algorithms that make this determination are called failure detectors; and I will discuss them fairly soon.
+Время также может быть использовано, чтобы определять граничные условия алгоритмов - в частности, различать "высокие задержки" и "сетевое разделение". Это очень важный вариант использования времени; в большинсве реальных систем таймауты используются для определения отказал ли удаленный сервер или в данный момент в сети просто довольно большие задержки. Алгоритмы которые могут определять это называются детекторами отказов; и вскоре о них будет вестись речь.
 
-## Vector clocks (time for causal order)
+## Векторные часы (время для причинного порядка)
 
-Earlier, we discussed the different assumptions about the rate of progress of time across a distributed system. Assuming that we cannot achieve accurate clock synchronization - or starting with the goal that our system should not be sensitive to issues with time synchronization, how can we order things?
+Ранее, мы обсуждали разные допущения о скорости течения времени в распределенной системе. Если предположить, что мы не можем достичь точной синхронизации времени - или мы ставим себе целью создать систему не чувствительную к рассинхронизации, как мы можем упорядочивать события?
 
-Lamport clocks and vector clocks are replacements for physical clocks which rely on counters and communication to determine the order of events across a distributed system. These clocks provide a counter that is comparable across different nodes.
+Лэмпортовы часы и векторные часы это замена физических часов - они полагаются на счетчики и коммуникации для определения сквозного порядка событий в распределенной системе. Эти часы предоставляют счетчик, который можно сравнивать на различных узлах
 
-*A Lamport clock* is simple. Each process maintains a counter using the following rules:
+*Лампортовы часы* довольно просты. Каждый процесс обладает счетчиком, который использует следующие правила:
 
-- Whenever a process does work, increment the counter
-- Whenever a process sends a message, include the counter
-- When a message is received, set the counter to `max(local_counter, received_counter) + 1`
+- Всякий раз когда процесс совершает некотрую работу, он увеличивает счетчик
+- Посылая сообщения процесс включает в него этот счетчик
+- Когда процесс получает сообщение, счетчик устанавливается согласно формуле `максимум(локальный_счетчик, полученный_счетчик) + 1`
 
-Expressed as code:
+Выразим, это следующим кодом:
 
     function LamportClock() {
       this.value = 1;
@@ -177,33 +177,33 @@ Expressed as code:
       this.value = Math.max(this.value, other.value) + 1;
     }
 
-A [Lamport clock](http://en.wikipedia.org/wiki/Lamport_timestamps) allows counters to be compared across systems, with a caveat: Lamport clocks define a partial order. If `timestamp(a) < timestamp(b)`:
+[Лэмпортовы часы](http://en.wikipedia.org/wiki/Lamport_timestamps) позволяют счетчикам быть сравниваемы между узлами в системе, с оговоркой: Лэмпоротовы часы определяют частичный порядок. Если `время(a) < время(b)`:
 
-- `a` may have happened before `b` or
-- `a` may be incomparable with `b`
+- `a` могло произойти перед `b` или
+- `a` может быть несравниваемо с`b`
 
-This is known as clock consistency condition: if one event comes before another, then that event's logical clock comes before the others. If `a` and `b` are from the same causal history, e.g. either both timestamp values were produced on the same process; or `b` is a response to the message sent in `a` then we know that `a` happened before `b`.
+Это известно как условие согласованности часов: если одно событие произошло перед другим, тогда логическое время этого событие должно быть меньше времени другого события. Если `a` и `b` пришли из одной цепочки причинно-следственной связи, например оба значения времени были получены из одного процесса; или `b` это ответ на сообщение посланное в результате `a` тогда мы знаем что `a` случилось перед `b`.
 
-Intuitively, this is because a Lamport clock can only carry information about one timeline / history; hence, comparing Lamport timestamps from systems that never communicate with each other may cause concurrent events to appear to be ordered when they are not.
+Можно догадатся, что причина этого в том что Лэмпортовы часы  могут нести в себе только информацию о одной цепочке событий / истории; следовательно, сравнение Лэмпортовых меток времени от систем, которые никогда не сообщаются друг с другом может приводить к видимости порядка между конкурентными событиями, хотя порядка между ними нету.
 
-Imagine a system that after an initial period divides into two independent subsystems which never communicate with each other.
+Представим систему, которая после инициализации разделяется на две независимые подсистемы которые никогда не сообщаются друг с другом.
 
-For all events in each independent system, if a happened before b, then `ts(a) < ts(b)`; but if you take two events from the different independent systems (e.g. events that are not causally related) then you cannot say anything meaningful about their relative order.  While each part of the system has assigned timestamps to events, those timestamps have no relation to each other. Two events may appear to be ordered even though they are unrelated.
+Для всех событий происходящих в каждой независимой системе, если a случилось раньше b, тогда `ts(a) < ts(b)`; но если взять два события с разных независимых систем (то есть события которые не связаны причинно - следственной связью) тогда мы не можем сказать что-либо осмысленное о их порядке относительно друг друга. Каждая часть системы присваивает событиям временные метки не связанные друг с другом. Два события могут казатся упорядоченными даже когда они совершенно не связаны.
 
-However - and this is still a useful property - from the perspective of a single machine, any message sent with `ts(a)` will receive a response with `ts(b)` which is `> ts(a)`.
+Однако - и это остается полезным свойством - на одной машине, на любое сообщение отправленное с временной меткой `ts(a)` будет получен ответ с временной меткой `ts(b)` которая будет `> ts(a)`.
 
-*A vector clock* is an extension of Lamport clock, which maintains an array `[ t1, t2, ... ]` of N logical clocks - one per each node. Rather than incrementing a common counter, each node increments its own logical clock in the vector by one on each internal event. Hence the update rules are:
+*Векторные часы* это расширение часов Лэмпорта, которое представляет собой массив `[ t1, t2, ... ]` логических часов - по одному экземпляру часов для каждого узла. Вместо увеличения общего счетчика, каждый узел увеличивает его логический счетчик когда происходит какое либо внутреннее событие. Следовательно правила изменения часов таковы:
 
-- Whenever a process does work, increment the logical clock value of the node in the vector
-- Whenever a process sends a message, include the full vector of logical clocks
-- When a message is received:
-  - update each element in the vector to be `max(local, received)`
-  - increment the logical clock value representing the current node in the vector
+- Когда процесс выполняет работу он увеличивает значение логических часов узла в векторе
+- Когда процесс отправляет сообщение, он включет в него весь вектор логических часов
+- Когда сообщение получено:
+  - обновляем каждый элемент в векторе, присваивая ему `максимум(локальное_значение, полученное_значение)`
+  - увеличиваем значение логических часов представляющих конкретный узел в векторе
 
-Again, expressed as code:
+Опять таки выразим в коде:
 
     function VectorClock(value) {
-      // expressed as a hash keyed by node id: e.g. { node1: 1, node2: 3 }
+      // представляем в виде хеша, в качестве ключей используем id узла: то есть { node1: 1, node2: 3 }
       this.value = value || {};
     }
 
@@ -223,7 +223,7 @@ Again, expressed as code:
       var result = {}, last,
           a = this.value,
           b = other.value;
-      // This filters out duplicate keys in the hash
+      // Фильтруем дубликаты ключей в хеши
       (Object.keys(a)
         .concat(b))
         .sort()
@@ -237,21 +237,21 @@ Again, expressed as code:
       this.value = result;
     };
 
-This illustration ([source](http://en.wikipedia.org/wiki/Vector_clock)) shows a vector clock:
+Эта иллюстрация ([источник](http://en.wikipedia.org/wiki/Vector_clock)) показывает векторные часы:
 
 ![from http://en.wikipedia.org/wiki/Vector_clock](images/vector_clock.svg.png)
 
-Each of the three nodes (A, B, C) keeps track of the vector clock. As events occur, they are timestamped with the current value of the vector clock. Examining a vector clock such as `{ A: 2, B: 4, C: 1 }` lets us accurately identify the messages that (potentially) influenced that event.
+Каждый из трех узлов (A, B, C) ведет векторные часы. Присвоенные к событиям значения векторных часов показывают как происходили события в системе. Рассматривая значение векторных часов такие как `{ A: 2, B: 4, C: 1 }` мы можем точно определить сообщения которые (потенциально) привели к этому событию.
 
-The issue with vector clocks is mainly that they require one entry per node, which means that they can potentially become very large for large systems. A variety of techniques have been applied to reduce the size of vector clocks (either by performing periodic garbage collection, or by reducing accuracy by limiting the size).
+TПроблемы с векторными часами возникают в основном изза того что для их реализации необходимо одно значение на один узел, это означает, чтоони могут потенциально разрастись для очень больших систем. Для сокращения размера векторных часов могут применятся различные техники - выполнение периодической сборки мусора или уменьшая размер вектора за счет снижения точности.
 
-We've looked at how order and causality can be tracked without physical clocks. Now, let's look at how time durations can be used for cutoff.
+Мы увидели как порядок и причинно-следственные связи могут отслеживатся без физических часов. Сейчас мы увидим как длительность времени может быть использована для ограничений.
 
-## Failure detectors (time for cutoff)
+## Детекторы отказов (время для отсечки)
 
-As I stated earlier, the amount of time spent waiting can provide clues about whether a system is partitioned or merely experiencing high latency. In this case, we don't need to assume a global clock of perfect accuracy - it is simply enough that there is a reliable-enough local clock.
+Как заявлялось ранее, количество времени потраченого на ожидание, может быть ключом к ответу на вопрос является ли система разделенной или просто испытывает высокие задержки. В этом случае, мы не нуждаемся в допущении идеально точных глобальных часов - это настолько просто, что надежно работает даже с локальными часами.
 
-Given a program running on one node, how can it tell that a remote node has failed? In the absence of accurate information, we can infer that an unresponsive remote node has failed after some reasonable amount of time has passed.
+Предположим что программа запущена на одном узле, когда мы можем сказать что удаленный узел отказал? В отсутсвии точной информации, мы можем сделать вывод, что узлы которые не отвечают на сообщения по проществии некотрого разумного количества времени отказали.
 
 But what is a "reasonable amount"? This depends on the latency between the local and remote nodes. Rather than explicitly specifying algorithms with specific values (which would inevitably be wrong in some cases), it would be nicer to deal with a suitable abstraction.
 
