@@ -19,17 +19,17 @@
 
 Это стадии выделены по мотивам [этой статьи](https://www.google.com/search?q=understanding+replication+in+databases+and+distributed+systems). Заметим, что модель сообщений которыми обмениваются отдельные части системы в каждой стадии зависит от конкретного алгоритма: попытаемся обойтись без обсуждения конкретных алгоритмов.
 
-Given these stages, what kind of communication patterns can we create? And what are the performance and availability implications of the patterns we choose?
+Учитывая эти этапы, какие шаблоны коммуникации мы можем создать? И какие неочевидные последствия будут у нашего выбора для производительности и доступности?
 
-## Synchronous replication
+## Синхронная репликация
 
-The first pattern is synchronous replication (also known as active, or eager, or push, or pessimistic replication). Let's draw what that looks like:
+Первый паттерн это синхронная репликация(также известная как активная, или интенсивная или пуш-репликация, или пессимистическая репликация). Давайте изобразим это:
 
 <img src="images/replication-sync.png" alt="replication" style="height: 340px;">
 
-Here, we can see three distinct stages: first, the client sends the request. Next, what we called the synchronous portion of replication takes place. The term refers to the fact that the client is blocked - waiting for a reply from the system.
+Здесь, мы можем увидеть три различных стадии: первая, клиент отправляет запрос. Следующая, когда выполняется синхронная часть репликации. Во время этой стадии клиент блокируется - ожидая ответ от системы.
 
-During the synchronous phase, the first server contacts the two other servers and waits until it has received replies from all the other servers. Finally, it sends a response to the client informing it of the result (e.g. success or failure).
+Во время синхронной фазы, первый сервер контактирует со вторым и ждет пока он не получит ответы от всех остальных серверов. В конце, он отсылает ответ клиенту информирующий его об успехе или неудачи.
 
 All this seems straightforward. What can we say of this specific arrangement of communication patterns, without discussing the details of the algorithm during the synchronous phase? First, observe that this is a write N - of - N approach: before a response is returned, it has to be seen and acknowledged by every server in the system.
 
