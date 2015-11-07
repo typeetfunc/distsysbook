@@ -2,22 +2,22 @@
 
 Проблема репликации одна из многих проблем в распределенных системах. Мы фокусируемся на этой проблеме среди других, таких как выбор лидера(мастер-реплики), определение отказов, взаимоисключения доступа(mutual exclusion), консенсус и глобальные снэпшоты(снимки состояния), потому что зачастую эта проблема интересует большинство людей. Например чтобы иметь возможность различать базы данных по описанию их возможностей в терминах репликации. Кроме того, репликация дает контекст для многих под-проблем таких как выбор лидера, определения отказов, консенсуса и атомарной посылке сообщщений всем узлам сети(броадкастинг).
 
-Репликация это группа связанных проблем. Какие соглашения и шаблоны коммуникации предоставять нам такие показатели производительности и доступности которые нам нужны? Как мы можем предоставлять отказоустойчивость, надежность и отсутсвие расходений сталкиваясь с разделениями сети и одновременными падениями узлом?
+Репликация это группа связанных проблем. Какие механизмы и шаблоны коммуникации предоставять нам такие показатели производительности и доступности которые нам нужны? Как мы можем предоставлять отказоустойчивость, надежность и отсутсвие расходений сталкиваясь с разделениями сети и одновременными падениями узлом?
 
-Again, there are many ways to approach replication. The approach I'll take here just looks at high level patterns that are possible for a system with replication. Looking at this visually helps keep the discussion focused on the overall pattern rather than the specific messaging involved. My goal here is to explore the design space rather than to explain the specifics of each algorithm.
+Опять таки существует много подходов к репликации. Под подходом здесь понимается просто высокоуровневый шаблон применимый для систем с репликацией. Такой взгляд помогает фокусироватся на общей картине, а не конкретных деталях. Наша цель здесь исследовать простанство возможных дизайнов, а не разобратся с спецификой конкретных алгоритмов.
 
-Let's first define what replication looks like. We assume that we have some initial database, and that clients make requests which change the state of the database.
+Для начала дадим определение репликации в общих чертах. Мы предполагаем что мы имеем некотрую базу данных в начальном состоянии, и могут совершать запросы которые изменяют состояние базы данных.
 
 <img src="images/replication-both.png" alt="replication" style="height: 340px;">
 
-The arrangement and communication pattern can then be divided into several stages:
+Тогда механизм и шаблон коммуникации могут быть разделены на несколько стадий:
 
-1. (Request) The client sends a request to a server
-3. (Sync) The synchronous portion of the replication takes place
-4. (Response) A response is returned to the client
-5. (Async) The asynchronous portion of the replication takes place
+1. (Запрос) Клиент посылает запрос на сервер
+3. (Синхронная часть) Происходит синхронная часть алгоритма репликации
+4. (Результат) Клиенту возврашается ответ
+5. (Асинхронная часть) Происходит асинхронная часть репликации
 
-This model is loosely based on [this article](https://www.google.com/search?q=understanding+replication+in+databases+and+distributed+systems). Note that the pattern of messages exchanged in each portion of the task depends on the specific algorithm: I am intentionally trying to get by without discussing the specific algorithm.
+Это стадии выделены по мотивам [этой статьи](https://www.google.com/search?q=understanding+replication+in+databases+and+distributed+systems). Заметим, что модель сообщений которыми обмениваются отдельные части системы в каждой стадии зависит от конкретного алгоритма: попытаемся обойтись без обсуждения конкретных алгоритмов.
 
 Given these stages, what kind of communication patterns can we create? And what are the performance and availability implications of the patterns we choose?
 
