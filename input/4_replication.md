@@ -1,8 +1,8 @@
-# %chapter_number%. Replication
+# %chapter_number%. Репликация
 
-The replication problem is one of many problems in distributed systems. I've chosen to focus on it over other problems such as leader election, failure detection, mutual exclusion, consensus and global snapshots because it is often the part that people are most interested in. One way in which parallel databases are differentiated is in terms of their replication features, for example. Furthermore, replication provides a context for many subproblems, such as leader election, failure detection, consensus and atomic broadcast.
+Проблема репликации одна из многих проблем в распределенных системах. Мы фокусируемся на этой проблеме среди других, таких как выбор лидера(мастер-реплики), определение отказов, взаимоисключения доступа(mutual exclusion), консенсус и глобальные снэпшоты(снимки состояния), потому что зачастую эта проблема интересует большинство людей. Например чтобы иметь возможность различать базы данных по описанию их возможностей в терминах репликации. Кроме того, репликация дает контекст для многих под-проблем таких как выбор лидера, определения отказов, консенсуса и атомарной посылке сообщщений всем узлам сети(броадкастинг).
 
-Replication is a group communication problem. What arrangement and communication pattern gives us the performance and availability characteristics we desire? How can we ensure fault tolerance, durability and non-divergence in the face of network partitions and simultaneous node failure?
+Репликация это группа связанных проблем. Какие соглашения и шаблоны коммуникации предоставять нам такие показатели производительности и доступности которые нам нужны? Как мы можем предоставлять отказоустойчивость, надежность и отсутсвие расходений сталкиваясь с разделениями сети и одновременными падениями узлом?
 
 Again, there are many ways to approach replication. The approach I'll take here just looks at high level patterns that are possible for a system with replication. Looking at this visually helps keep the discussion focused on the overall pattern rather than the specific messaging involved. My goal here is to explore the design space rather than to explain the specifics of each algorithm.
 
