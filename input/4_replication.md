@@ -31,70 +31,70 @@
 
 Во время синхронной фазы, первый сервер контактирует со вторым и ждет пока он не получит ответы от всех остальных серверов. В конце, он отсылает ответ клиенту информирующий его об успехе или неудачи.
 
-All this seems straightforward. What can we say of this specific arrangement of communication patterns, without discussing the details of the algorithm during the synchronous phase? First, observe that this is a write N - of - N approach: before a response is returned, it has to be seen and acknowledged by every server in the system.
+Это выглядит довольно просто. Что мы можем сказать о специфичных соглашениях о шаблонах коммуникации, не погружаясь в детали конкретного алгоритма синхронной фазы? Во-первых, заметим что запись осуществляется при помощи N - из - N подхода: прежде чем результат будет возврашен, он должен быть доставлен и признан корректным каждым сервером в системе(если серверов N то запись должна быть потверждена N раз).
 
-From a performance perspective, this means that the system will be as fast as the slowest server in it. The system will also be very sensitive to changes in network latency, since it requires every server to reply before proceeding.
+С точки зрения производительности это означает, что система будет быстрой настолько же как и самая медленная машина в кластере. Система также будет крайне чувствительна к изменениям сетевых задержек, так как необходимо дождатся пока ответа каждого сервера прежде чем ответить клиенту.
 
-Given the N-of-N approach, the system cannot tolerate the loss of any servers. When a server is lost, the system can no longer write to all the nodes, and so it cannot proceed. It might be able to provide read-only access to the data, but modifications are not allowed after a node has failed in this design.
+Использующая данный подход(N-из-N) система не может быть устойчива к выходу из строя какого либо сервера. При падении сервера, система на долгое время теряет возможность продолжать запись на всех узлах и соотвественно не может продолжать обрабатывать запросы клиента. Она все еще может предоставлять доступ к данным на чтение, но их модификация становится не возможно при падении узла при такой архитектуре.
 
-This arrangement can provide very strong durability guarantees: the client can be certain that all N servers have received, stored and acknowledged the request when the response is returned. In order to lose an accepted update, all N copies would need to be lost, which is about as good a guarantee as you can make.
+Такое механизм работы позволяет предоставлять строгие гарантии надежности: клиент может быть уверен что все N серверов получили, сохранили и согласились с запросом на модификацию, когда клиент получил ответ. Чтобы потерять принятое обновление необходимо чтобы его потеряли все N серверов, что является настолько хорошей гарантией насколько мы можем дать.
 
-## Asynchronous replication
+## Асинхронная репликация
 
-Let's contrast this with the second pattern - asynchronous replication (a.k.a. passive replication, or pull replication, or lazy replication). As you may have guessed, this is the opposite of synchronous replication:
+Давайте сравним данные подход с другим паттерном - асинхронной репликацией (a.k.a. пассивная репликация, или pull-репликация, или ленивая репликация). Как вы можете догадатся, этот подход противоположен синхронной репликации:
 
 <img src="images/replication-async.png" alt="replication" style="height: 340px;">
 
-Here, the master (/leader / coordinator) immediately sends back a response to the client. It might at best store the update locally, but it will not do any significant work synchronously and the client is not forced to wait for more rounds of communication to occur between the servers.
+Здесь, мастер (/ лидер / координатор) немедленно возврашает ответ клиенту. Максимум что он делает это сохраняет изменения локально, но он не будет делать какую либо синхронную отсылку этих изменений другим серверам и не будет заставлять ждать клиента пока произойдет коммуникация с другими серверами.
 
-At some later stage, the asynchronous portion of the replication task takes place. Here, the master contacts the other servers using some communication pattern, and the other servers update their copies of the data. The specifics depend on the algorithm in use.
+После этого, наступает стадия в который выполняется асинхронная часть механизма репликации. Во время нее, мастер сообщает другим серверам обновить локальную версию данных. Детали этого зависят от алгоритма используемого для репликации.
 
-What can we say of this specific arrangement without getting into the details of the algorithm? Well, this is a write 1 - of - N approach: a response is returned immediately and update propagation occurs sometime later.
+Что мы можем сказать о специфики такого подхода без углубления в детали конкретных алгоритмов? Что ж, это запись 1 - из - N: результат будет возврашен немедленно, а обновления будут распространены немного позже.
 
-From a performance perspective, this means that the system is fast: the client does not need to spend any additional time waiting for the internals of the system to do their work. The system is also more tolerant of network latency, since fluctuations in internal latency do not cause additional waiting on the client side.
+С точки зрения производительности это означает что система будет быстрой: клиенту нет нужды тратить время ожидая пока система совершит всю внутреннюю работу. Такая система также более невосприимчива к сетевым задержкам, так как изменения задержек внутри системы не вызывают увеличение времени ожидания клиента.
 
-This arrangement can only provide weak, or probabilistic durability guarantees. If nothing goes wrong, the data is eventually replicated to all N machines. However, if the only server containing the data is lost before this can take place, the data is permanently lost.
+Такой механизм может предоставлять только слабые или вероятностные гарантии надежности. Если не случится ничего неправильного, тогда данные в конечном итоге будут реплицированны на все N машин. Однако, если только сервер содержаший данные потеряет их прежде чем это случится тогда мы можем потерять эти данные навсегда.
 
-Given the 1-of-N approach, the system can remain available as long as at least one node is up (at least in theory, though in practice the load will probably be too high). A purely lazy approach like this provides no durability or consistency guarantees; you may be allowed to write to the system, but there are no guarantees that you can read back what you wrote if any faults occur.
+Данный подход, позволяет системе оставатся доступной до тех пор пока остается хотя бы один узел(это только в теории - на практике нагрузка на него будет слишком высока). Полностью "ленивый" подход не предоставляет гарантий надежности и согласованности; вы можете писать данные в систему, но нет никаких гарантий что вы сможете прочитать те данные что вы записали в случае возникновения каких либо ошибок.
 
-Finally, it's worth noting that passive replication cannot ensure that all nodes in the system always contain the same state. If you accept writes at multiple locations and do not require that those nodes synchronously agree, then you will run the risk of divergence: reads may return different results from different locations (particularly after nodes fail and recover), and global constraints (which require communicating with everyone) cannot be enforced.
+В конце концов, следует заметить что пассивная репликация не может обеспечивать одинаковое состояние на всех узлах. Если вы проводите запись в нескольких узлах и не требуете чтобы все узлы были синхронно согласны на запись, вы рискуете получить расхождение данных: чтение может возврашать разные данные из разных источников(в частности для узлов после востановления), и глобальные ограничения(которые требуют коммуникации всех узлов) не могут использоватся при таком подходе.
 
-I haven't really mentioned the communication patterns during a read (rather than a write), because the pattern of reads really follows from the pattern of writes: during a read, you want to contact as few nodes as possible. We'll discuss this a bit more in the context of quorums.
+Детали коммуникации при чтении данных не упомянуты специально, потому что то как вы читаете данные напрямую зависит от способа записи: во время чтения вы хотите контактировать с несколькими узлами - если это представляется возможным. Немного более подробно об этом будет сказано в контексте кворумов.
 
-We've only discussed two basic arrangements and none of the specific algorithms. Yet we've been able to figure out quite a bit of about the possible communication patterns as well as their performance, durability guarantees and availability characteristics.
+Мы только обсудили два базовых подхода и не вдавались в детали специфики  конкретных алгоритмов. Еще мы смогли выяснить совсем немного о возможных моделях коммуникации а также их производительности, гарантиях надежности и доступности.
 
-## An overview of major replication approaches
+## Обзор большинства способов репликации
 
-Having discussed the two basic replication approaches: synchronous and asynchronous replication, let's have a look at the major replication algorithms.
+У нас была дискуссия о двух главных способах: синхронной и асинхронной репликации, а теперь давайте взглянем на большинство алгоритмов репликации.
 
-There are many, many different ways to categorize replication techniques. The second distinction (after sync vs. async) I'd like to introduce is between:
+Существует очень много различных способов разбить на категории техники применяемые для репликации. Второе разделение(после синхронной и асинхронной) которое мы обсудим, это разделение между:
 
-- Replication methods that prevent divergence (single copy systems) and
-- Replication methods that risk divergence (multi-master systems)
+- Методами репликации которые предотвращают расхождение ("single copy" системы) и
+- Методами репликации которые могут приводит к расхождениям (мульти-мастер системы)
 
-The first group of methods has the property that they "behave like a single system". In particular, when partial failures occur, the system ensures that only a single copy of the system is active. Furthermore, the system ensures that the replicas are always in agreement. This is known as the consensus problem.
+Первая группа методов удовлетворяет условиям "поведения аналогичного для не распределенной системы".  В частности, когда отказываает часть системы, гарантируется что только одная копия системы остается активной. Кроме того, система гарантирует что реплики всегда находятся в согласии. Это известно как проблема консенсуса.
 
-Several processes (or computers) achieve consensus if they all agree on some value. More formally:
+Несколько процессов(или компьютеров) достигают консенсуса если все они согласны насчет некотрого значения. Более формально:
 
-1. Agreement: Every correct process must agree on the same value.
-2. Integrity: Every correct process decides at most one value, and if it decides some value, then it must have been proposed by some process.
-3. Termination: All processes eventually reach a decision.
-4. Validity: If all correct processes propose the same value V, then all correct processes decide V.
+1. Соглашение: Каждый корректный процесс должен быть согласен с одним и тем же значением что и другие.
+2. Целостность: Каждый корректный процесс может выбрать не более одного значения, и если он выбирает некотрое значение то оно должно быть предложено некотрым процессом.
+3. Завершение: Все процессы должны в конечном счете принять решение.
+4. Обоснованность: Если все корректные процессы предлагают значение V, тогда все корректные процессы должны принять значение V.
 
-Mutual exclusion, leader election, multicast and atomic broadcast are all instances of the more general problem of consensus. Replicated systems that maintain single copy consistency need to solve the consensus problem in some way.
+Конкурентный доступ к данным, выбор лидера, атомарная отсылка сообщей всем(броадкаст) или нескольким(мультикаст) узлам - все это частный случаи более общей проблемы консенсуса. Системы репликации которые поддерживат консистетность уровня "одна активная копия"("single-copy")  нуждаются в решении проблемы консенсуса каким либо способом.
 
-The replication algorithms that maintain single-copy consistency include:
+Алгоритмы репликации которые поддерживают single-copy согласованность включают в себя следующие категории:
 
-- 1n messages (asynchronous primary/backup)
-- 2n messages (synchronous primary/backup)
-- 4n messages (2-phase commit, Multi-Paxos)
-- 6n messages (3-phase commit, Paxos with repeated leader election)
+- 1n сообщений (асинхронный primary/backup)
+- 2n сообщейний (синхронный primary/backup)
+- 4n сообщений (2-ухфазный коммит, Мульти-Паксос)
+- 6n сообщений (3-хфазный коммит, Паксос с повторящимся выбором лидера)
 
-These algorithms vary in their fault tolerance (e.g. the types of faults they can tolerate). I've classified these simply by the number of messages exchanged during an execution of the algorithm, because I think it is interesting to try to find an answer to the question "what are we buying with the added message exchanges?"
+Эти алгоритмы отличаются по устойчивости к отказам (то есть типам отказов которые они могут обрабатывать). Классификация выше делит их просто по числу сообщений которые им надо отправить во время выполнения алгоритма, потому что, мне кажется интересно найти ответ на вопрос "Что мы получаем с увеличением обмена сообщениями?"
 
-The diagram below, adapted from Ryan Barret at [Google](http://www.google.com/events/io/2009/sessions/TransactionsAcrossDatacenters.html), describes some of the aspects of the different options:
+Диаграмма ниже адаптированная из работы Ryan Barret из [Google](http://www.google.com/events/io/2009/sessions/TransactionsAcrossDatacenters.html), описывает некотрые аспекты возможных вариантов опций:
 
-![Comparison of replication methods, from http://www.google.com/events/io/2009/sessions/TransactionsAcrossDatacenters.html](images/google-transact09.png)
+![Сравнение методов репликации из http://www.google.com/events/io/2009/sessions/TransactionsAcrossDatacenters.html](images/google-transact09.png)
 
 The consistency, latency, throughput, data loss and failover characteristics in the diagram above can really be traced back to the two different replication methods: synchronous replication (e.g. waiting before responding) and asynchronous replication. When you wait, you get worse performance but stronger guarantees. The throughput difference between 2PC and quorum systems will become apparent when we discuss partition (and latency) tolerance.
 
