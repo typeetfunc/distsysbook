@@ -96,64 +96,64 @@
 
 ![Сравнение методов репликации из http://www.google.com/events/io/2009/sessions/TransactionsAcrossDatacenters.html](images/google-transact09.png)
 
-The consistency, latency, throughput, data loss and failover characteristics in the diagram above can really be traced back to the two different replication methods: synchronous replication (e.g. waiting before responding) and asynchronous replication. When you wait, you get worse performance but stronger guarantees. The throughput difference between 2PC and quorum systems will become apparent when we discuss partition (and latency) tolerance.
+Характеристики согласованности, задержек, пропускной способности, возможности потери данных и способности к востановлению на диаграмме выше могут быть вытекают из сути двух главных методов репликации: синхронная репликация(во время который мы ждем прежде ответить) и асинхронной. Когда мы ждем, мы получаем хуже производительность но выше гарантии надежности. Разница в пропускной способности между 2PC  системах и основанных на кворуме системах станет очевидной когда мы будем обсуждать устойчивость к разделению(и задержкам).
 
 
-In that diagram, algorithms enforcing weak (/eventual) consistency are lumped up into one category ("gossip"). However, I will discuss replication methods for weak consistency - gossip and (partial) quorum systems - in more detail. The "transactions" row really refers more to global predicate evaluation, which is not supported in systems with weak consistency (though local predicate evaluation can be supported).
+На диаграмме, алгоритмы обеспечивающие слабую согласованность("согласованность в конечном итоге") объединены в одну категорию ("gossip"). Однако, мы будем обсуждать методы репликации с слабой согласованностью - gossip и системы с частичным кворумом - более детально. Строчка с заголовков "transactions" на самом деле ссылается больше на вычисление ограничений в рамках всей системы,  которые не поддерживаются в системах с слабой согласованность (хотя локальные ограничения и условия поддерживаются).
 
-It is worth noting that systems enforcing weak consistency requirements have fewer generic algorithms, and more techniques that can be selectively applied. Since systems that do not enforce single-copy consistency are free to act like distributed systems consisting of multiple nodes, there are fewer obvious objectives to fix and the focus is more on giving people a way to reason about the characteristics of the system that they have.
+Следует отметить что системы предоставляющие гарантии только слабой согласованности требуют менее общих(более специальных) алгоритмов, и многие техники применимы к ним только частично. Системы не связывающие себя обязательством согласованности с единственной активной копией свободны от ограничения, что они должны работать "как на одной машине", их задачи менее очевидны, что в свою очередь позволяет людям сфокусироватся на том чтобы рассуждать о характеристиках которые имеет такая система.
 
-For example:
+Для примера:
 
-- Client-centric consistency models attempt to provide more intelligible consistency guarantees while allowing for divergence.
-- CRDTs (convergent and commutative replicated datatypes) exploit semilattice properties (associativity, commutativity, idempotency) of certain state and operation-based data types.
-- Confluence analysis (as in the Bloom language) uses information regarding the monotonicity of computations to maximally exploit disorder.
-- PBS (probabilistically bounded staleness) uses simulation and information collected from a real world system to characterize the expected behavior of partial quorum systems.
+- Клиент-ориентированная согласованность пытается предоставлять более понятные гарантии согласованности при возможных расхождениях данных.
+- CRDTs (сходящиеся и коммутативные реплицируемые типы данных) используют  свойства полукольца (ассоциативность, коммутативность, имподентность) опредленных для структур данных основанных на состоянии и операциях.
+- Анализ слияний(Confluence analysis) (как в Bloom language) использует информацию о монотонности вычислений максимально используя отсуствия порядка.
+- PBS (вероятностные ограничения устаревания - probabilistically bounded staleness) использует симуляцию  и информацию с реальной системы чтобы характеризовать ожидаемое поведение системы с частичным кворумом.
 
-I'll talk about all of these a bit  further on, first; let's look at the replication algorithms that maintain single-copy consistency.
+Мы будем обсуждать все эти техники немного позже; для начала давайте посмотрим на алгоритмы репликации которые поддерживают согласованность во всей системе на уровне одной активной копии не допускающей расхождений(single-copy).
 
-## Primary/backup replication
+## Primary/backup репликация
 
-Primary/backup replication (also known as primary copy replication master-slave replication or log shipping) is perhaps the most commonly used replication method, and the most basic algorithm. All updated are performed on the primary, and a log of operations (or alternatively, changes) is shipped across the network to the backup replicas. There are two variants:
+Primary/backup репликация (также известная как репликация методом копирования мастера, мастер-слейв репликация и рпеликация отправкой логов) возможно наиболее общий из алгоритмов репликации, и самый простой. Все изменения выполненые на главной реплике и лог всех операций (или всех изменений) отправляется по сети остальным репликам. Как мы помним, возможны два варианта:
 
-- asynchronous primary/backup replication and
-- synchronous primary/backup replication
+- изменения отсылаются асинхронно и
+- изменения отсылаются синхронно
 
-The synchronous version requires two messages ("update" + "acknowledge receipt") while the asynchronous version could run with just one ("update").
+Синхронный вариант требует два сообщения ("обновление" + "подтверждение получения") в то время как асинхронный вариант только лишь "обновления".
 
-P/B is very common. For example, by default MySQL replication uses the asynchronous variant. MongoDB also uses P/B (with some additional procedures for failover). All operations are performed on one master server, which serializes them to a local log, which is then replicated asynchronously to the backup servers.
+P/B очень общий алгоритм. Для примера, по умолчанию MySQL репликация использует его асинхронный вариант. MongoDB также использует P/B (с некотрыми дополнениями для востанновления в случе отказа мастера). Все операции выполняются на одном мастер сервере, которые затем упорядочиваются в локальный лог и затем асинхронно воспроизводятся на резервной реплике.
 
-As we discussed earlier in the context of asynchronous replication, any asynchronous replication algorithm can only provide weak durability guarantees. In MySQL replication this manifests as replication lag: the asynchronous backups are always at least one operation behind the primary. If the primary fails, then the updates that have not yet been sent to the backups are lost.
+Как мы обсуждали раньше в контексте асинхронной репликации, любая подобный алгоритм может предоставить только слабые гарантии надежности. В MySQL репликации это известно как лаг репликации: асинхронное копирование всегда отстает по крайне мере на одну операцию от мастера. Если мастер упадет, когда обновления еще не будут доставлены они будут потеряны.
 
-The synchronous variant of primary/backup replication ensures that writes have been stored on other nodes before returning back to the client - at the cost of waiting for responses from other replicas. However, it is worth noting that even this variant can only offer weak guarantees. Consider the following simple failure scenario:
+Синхронный вариант primary/backup репликации обеспечивает сохранение записи на реплике прежде чем результат будет возвращен клиенту - ценой этому будет ожидание ответа всех реплик. Однако, стоит заметить что даже такой вариант может быть предоставлять только слабые гарантии. Рассмотрим следующий сценарий отказа:
 
-- the primary receives a write and sends it to the backup
-- the backup persists and ACKs the write
-- and then primary fails before sending ACK to the client
+- мастер принимает запись и отправляет ее на реплики
+- реплики сохраняют ее и сообщают о успешной записи
+- и в этот момент мастер падает прежде чем отправляет ответ клиенту
 
-The client now assumes that the commit failed, but the backup committed it; if the backup is promoted to primary, it will be incorrect. Manual cleanup may be needed to reconcile the failed primary or divergent backups.
+Клиент допускает что запись была не успешна, но реплики совершили запись; если реплика будет выдвинута на роль мастера, эта запись будет некорректна с точки зрения клиента. Может понадобится ручная очистка для синхронизации расходящихся мастера и реплики.
 
-I am simplifying here of course. While all primary/backup replication algorithms follow the same general messaging pattern, they differ in their handling of failover, replicas being offline for extended periods and so on. However, it is not possible to be resilient to inopportune failures of the primary in this scheme.
+Данный сценарий конечно намеренно упрощен. Все алгоритмы мастер-слейв репликации следуют одним паттернам коммуникации но они отличаются в способности обработке востанновления после отказа, возможности реплики находится в оффлайне длительное время и так далее. Однако, не возможно быть полностью устойчивым к неудачным падениям мастера в такой схеме.
 
-What is key in the log-shipping / primary/backup based schemes is that they can only offer a best-effort guarantee (e.g. they are susceptible to lost updates or incorrect updates if nodes fail at inopportune times). Furthermore, P/B schemes are susceptible to split-brain, where the failover to a backup kicks in due to a temporary network issue and causes both the primary and backup to be active at the same time.
+Ключевым в механизмах основанных на мастер-слейв алгоритмах является то что они предлагают гарантии настолько хорошие насколько это возможно(например они могут терять обновления или наоборот получать некорректные апдейты если узел падает в неподходящий момент). Более того, мастер-слейв конфигурации уязвимы к так называемому "split-brain", когда востановление путем выдвижение в качестве мастер сервера одной из реплик после проблем с сетью приводит к тому что некотрое время оказывается активным оба мастера(новый созданный из реплики и старый вернувшийся в строй).
 
-To prevent inopportune failures from causing consistency guarantees to be violated; we need to add another round of messaging, which gets us the two phase commit protocol (2PC).
+Для предотвращения сбоя в неподходящий момент мы должны добавить еще один раунд обмена сообщениями, прийдя тем самым к протоколу двух-фазного коммита.
 
-## Two phase commit (2PC)
+## Двух-фазный коммит (2PC)
 
-[Two phase commit](http://en.wikipedia.org/wiki/Two-phase_commit_protocol) (2PC) is a protocol used in many classic relational databases. For example, MySQL Cluster (not to be confused with the regular MySQL) provides synchronous replication using 2PC. The diagram below illustrates the message flow:
+[Двух-фазный коммит](http://en.wikipedia.org/wiki/Two-phase_commit_protocol) (2PC) это протокол используемый во многих классических реляционных базах данных. Для примера, MySQL Cluster (не путать с обычным MySQL) предоставляет синхронную репликацию используя 2PC. Диаграмма ниже иллюстрирует поток сообщений:
 
-    [ Coordinator ] -> OK to commit?     [ Peers ]
+    [ Координатор ] -> Готовы к совершению операции(commit)?     [ Узлы ]
                     <- Yes / No
 
-    [ Coordinator ] -> Commit / Rollback [ Peers ]
-                    <- ACK
+    [ Координатор ] -> Завершить / откатить [ Узлы ]
+                    <- Результат операции
 
-In the first phase (voting), the coordinator sends the update to all the participants. Each participant processes the update and votes whether to commit or abort. When voting to commit, the participants store the update onto a temporary area (the write-ahead log). Until the second phase completes, the update is considered temporary.
+В первой фазе(голосования),  координатор отсылает обновления всем участникам. Каждый участвующий процесс исполняет обновления и голосует завершить операции или откатить. Когда голосуют за завершение участники сохраняют обновление в некотрой временной зоне (write-ahead лог). Пока выполняется вторая фаза обновления считаются временными.
 
-In the second phase (decision), the coordinator decides the outcome and informs every participant about it. If all participants voted to commit, then the update is taken from the temporary area and made permanent.
+Во второй фазе(решения), координатор подводит итог на основе данных с реплик и сообщает каждому участнику. Если все участники голосовали за совершение операции, тогда обновление перемещается из временной зоны в место постоянного хранения.
 
-Having a second phase in place before the commit is considered permanent is useful, because it allows the system to roll back an update when a node fails. In contrast, in primary/backup ("1PC"), there is no step for rolling back an operation that has failed on some nodes and succeeded on others, and hence the replicas could diverge.
+Наличие второй фазы перед сохранением в постоянное хранилище крайне полезно, так как оно позволяет системе откатится в случае если узел упадет.  В отличии от 2PC в мастер-слейв схеме, которая не содержит шага для отмены операции в случае если операция была успешно выполнена на одних узлах а на других случился отказ и следовательно реплики оказались подвержены расхождениям.
 
 2PC is prone to blocking, since a single node failure (participant or coordinator) blocks progress until the node has recovered. Recovery is often possible thanks to the second phase, during which other nodes are informed about the system state. Note that 2PC assumes that the data in stable storage at each node is never lost and that no node crashes forever. Data loss is still possible if the data in the stable storage is corrupted in a crash.
 
