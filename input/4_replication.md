@@ -144,7 +144,7 @@ P/B очень общий алгоритм. Для примера, по умол
 [Двух-фазный коммит](http://en.wikipedia.org/wiki/Two-phase_commit_protocol) (2PC) это протокол используемый во многих классических реляционных базах данных. Для примера, MySQL Cluster (не путать с обычным MySQL) предоставляет синхронную репликацию используя 2PC. Диаграмма ниже иллюстрирует поток сообщений:
 
     [ Координатор ] -> Готовы к совершению операции(commit)?     [ Узлы ]
-                    <- Yes / No
+                    <- Да / Нет
 
     [ Координатор ] -> Завершить / откатить [ Узлы ]
                     <- Результат операции
@@ -155,7 +155,7 @@ P/B очень общий алгоритм. Для примера, по умол
 
 Наличие второй фазы перед сохранением в постоянное хранилище крайне полезно, так как оно позволяет системе откатится в случае если узел упадет.  В отличии от 2PC в мастер-слейв схеме, которая не содержит шага для отмены операции в случае если операция была успешно выполнена на одних узлах а на других случился отказ и следовательно реплики оказались подвержены расхождениям.
 
-2PC is prone to blocking, since a single node failure (participant or coordinator) blocks progress until the node has recovered. Recovery is often possible thanks to the second phase, during which other nodes are informed about the system state. Note that 2PC assumes that the data in stable storage at each node is never lost and that no node crashes forever. Data loss is still possible if the data in the stable storage is corrupted in a crash.
+2PC склонен к блокировкам, пока один узел отказал (участник или координатор) все операции блокируетются пока узел не востановится. Востановление зачастую возможно благодаря второй фазе, во время которой другие узлы информируют о состоянии системы. Заметим что 2PC допускает что данные в поостоянном хранилище никогда не будут потеряны и узлы никогда не откажут навсегда. Потери данных остаются возможными если данные в постоянном хранилище будут повреждены при отказе.
 
 The details of the recovery procedures during node failures are quite complicated so I won't get into the specifics. The major tasks are ensuring that writes to disk are durable (e.g. flushed to disk rather than cached) and making sure that the right recovery decisions are made (e.g. learning the outcome of the round and then redoing or undoing an update locally).
 
