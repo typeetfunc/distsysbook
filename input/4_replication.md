@@ -191,13 +191,13 @@ P/B очень общий алгоритм. Для примера, по умол
 
 ### Решения основанные на большинстве
 
-This is why partition tolerant consensus algorithms rely on a majority vote. Requiring a majority of nodes - rather than all of the nodes (as in 2PC) - to agree on updates allows a minority of the nodes to be down, or slow, or unreachable due to a network partition. As long as `(N/2 + 1)-of-N` nodes are up and accessible, the system can continue to operate.
+Поэтому алгоритмы консенсуса устойчивые к разделению основаны на голосе большинства. Требование большинства узлов - в отличии от всех узлов (как в 2PC) - для согласия на обновление позволяет меньшинству узлов быть упавшими недоступными изза разделения сети или очень медленными. Пока `(N/2 + 1)-из-N` узлов работоспобны и доступны система может продолжать работу.
 
-Partition tolerant consensus algorithms use an odd number of nodes (e.g. 3, 5 or 7). With just two nodes, it is not possible to have a clear majority after a failure. For example, if the number of nodes is three, then the system is resilient to one node failure; with five nodes the system is resilient to two node failures.
+Алгоритмы консенсуса устойчивые к разделению используют нечетное числов узлов (например, 3, 5 или 7). Используя только 2 узла невозможно определить абсолютное большинство. Для примера, если у нас 3 узла, тогда система устойчива к отказу одного узла, если узлов 5 - тогда уже к падению двух.
 
-When a network partition occurs, the partitions behave asymmetrically. One partition will contain the majority of the nodes. Minority partitions will stop processing operations to prevent divergence during a network partition, but the majority partition can remain active. This ensures that only a single copy of the system state remains active.
+Когда происходит разделение сети, партиции ведут себя асимметрично. Одна будет содержать большинство узлов. Меньшинство прекратит обрабатывать операции чтобы предотвратить расхождения пока сеть не востанновится, но партиция с большинством участников останется активной. Это обеспечивает единственную копию системы которая остается активной.
 
-Majorities are also useful because they can tolerate disagreement: if there is a perturbation or failure, the nodes may vote differently. However, since there can be only one majority decision, a temporary disagreement can at most block the protocol from proceeding (giving up liveness) but it cannot violate the single-copy consistency criterion (safety property).
+Большинство также полезно потому что оно устойчиво к несогласию узлов: если есть искажения или отказы, тогда узлы могут проголосовать по-разному. Однако, поскольку может быть только одно решение принятое большинством, временное несогласие может заблокировать принятие окончательного решения(отказ от свойства живучести) но не может нарушить критерий целостности "единой копии" (свойство корректности).
 
 ### Roles
 
