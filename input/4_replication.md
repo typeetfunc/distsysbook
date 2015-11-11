@@ -155,41 +155,41 @@ P/B очень общий алгоритм. Для примера, по умол
 
 Наличие второй фазы перед сохранением в постоянное хранилище крайне полезно, так как оно позволяет системе откатится в случае если узел упадет.  В отличии от 2PC в мастер-слейв схеме, которая не содержит шага для отмены операции в случае если операция была успешно выполнена на одних узлах а на других случился отказ и следовательно реплики оказались подвержены расхождениям.
 
-2PC склонен к блокировкам, пока один узел отказал (участник или координатор) все операции блокируетются пока узел не востановится. Востановление зачастую возможно благодаря второй фазе, во время которой другие узлы информируют о состоянии системы. Заметим что 2PC допускает что данные в поостоянном хранилище никогда не будут потеряны и узлы никогда не откажут навсегда. Потери данных остаются возможными если данные в постоянном хранилище будут повреждены при отказе.
+2PC склонен к блокировкам, пока один узел отказал (участник или координатор) все операции блокируетются пока узел не востановится. Востановление зачастую возможно благодаря второй фазе, во время которой другие узлы информируют о состоянии системы. Заметим что 2PC допускает что данные в поостоянном хранилище никогда не будут потеряны и узлы никогда не откажут навсегда. Потери данных остаются возможными если данные в постоянном хранилище будут повреждены при падении.
 
-The details of the recovery procedures during node failures are quite complicated so I won't get into the specifics. The major tasks are ensuring that writes to disk are durable (e.g. flushed to disk rather than cached) and making sure that the right recovery decisions are made (e.g. learning the outcome of the round and then redoing or undoing an update locally).
+Детали процедуры востановления после сбоев узлов довольно сложны и мы не будем вдаватся в специфику. Главные задачи это обеспечить надежную запись на диск(например записывать все на диск не кэшируя) и The major tasks are ensuring that writes to disk are durable (e.g. flushed to disk rather than cached) и убедиться, что были приняты правильные решения для востанновления (например изучив исход раунда востановить или отменить локальные изменения).
 
-As we learned in the chapter regarding CAP, 2PC is a CA - it is not partition tolerant. The failure model that 2PC addresses does not include network partitions; the prescribed way to recover from a node failure is to wait until the network partition heals. There is no safe way to promote a new coordinator if one fails; rather a manual intervention is required. 2PC is also fairly latency-sensitive, since it is a write N-of-N approach in which writes cannot proceed until the slowest node acknowledges them.
+Как мы узнали в главе посвященной CAP теореме, 2PC это CA - он не устойчив к разделению. Модель отказов 2PC не включает в себя разделения сети; предписанный им способ востановится после отказа узла это подождать пока не востановится сеть. То есть несуществует безопасного способа выдвинуть нового координатора если один упал; необходимо ручное воздействие. 2PC также довольно чувствителен к задержкам, так как это N-из-N подход к записи когда запись не может продолжатся пока самый медленный узел не подтвердит ее.
 
-2PC strikes a decent balance between performance and fault tolerance, which is why it has been popular in relational databases. However, newer systems often use a partition tolerant consensus algorithm, since such an algorithm can provide automatic recovery from temporary network partitions as well as more graceful handling of increased between-node latency.
+2PC это достойный компромисс между производительностью и отказоустойчивостью, поэтому он так популярен в классических реляционных базах данных. Однако, более новые системы зачастую используют алгоритмы консенсуса устойчивые к разделению, поскольку такой алгоритм может обсепечить востанновление при временных разделениях сети, а также меньшую чувствительность к задержкам между узлами.
 
-Let's look at partition tolerant consensus algorithms next.
+Давайте взглянем на алгоритмы консенсуса устойчивые к разделению.
 
-## Partition tolerant consensus algorithms
+## Алгоритмы консенсуса устойчивые к разделению
 
-Partition tolerant consensus algorithms are as far as we're going to go in terms of fault-tolerant algorithms that maintain single-copy consistency. There is a further class of fault tolerant algorithms: algorithms that tolerate [arbitrary (Byzantine) faults](http://en.wikipedia.org/wiki/Byzantine_fault_tolerance); these include nodes that fail by acting maliciously. Such algorithms are rarely used in commercial systems, because they are more expensive to run and more complicated to implement - and hence I will leave them out.
+Алгоритмы консенсуса устойчивые к разделению ушли насколько это возможно далеко от устойчивых к отказам алгоритмов представляющих консистентность без расхождений. Следующий класс алгоритмов устойчивым к отказам: алгоритмы устойчивые к [произвольным (Византийским) отказам](http://en.wikipedia.org/wiki/Byzantine_fault_tolerance); они включают в себя отказы проявляющиеся в некорректном поведении узлов. Такие алгоритмы редко используются в коммерческих системах, потому что они более дорогие и сложные для реализации и запуска - и следовательно мы не будем обсуждать их.
 
-When it comes to partition tolerant consensus algorithms, the most well-known algorithm is the Paxos algorithm. It is, however, notoriously difficult to implement and explain, so I will focus on Raft, a recent (~early 2013) algorithm designed to be easier to teach and implement. Let's first take a look at network partitions and the general characteristics of partition tolerant consensus algorithms.
+Когда обсуждение доходит до алгоритмов консенсуса устойчивых к разделениям, многие вспоминают широко известный алгоритм Paxos. Однако общеизвестно что он довольно сложен для реализации и обьяснения, так что мы сфокусируемся на Raft, не так давно созданым алгоритмом(начало 2013) с целью быть более простым в понимании и реализации. Давайте сперва взглянем на сетевое разделение и главные характеристики алгоритмов консенсуса устойчивых к разделениям.
 
-### What is a network partition?
+### Что такое сетевое разделение?
 
-A network partition is the failure of a network link to one or several nodes. The nodes themselves continue to stay active, and they may even be able to receive requests from clients on their side of the network partition. As we learned earlier - during the discussion of the CAP theorem - network partitions do occur and not all systems handle them gracefully.
+Сетевое разделение это исчезновение связи по сети к одному или нескольким узлами. Узлы при этом остаются активны и даже могут обслуживать запросы клиентов на своей стороне сетевого раздела. Как мы узнали раньше - во время дискуссии о CAP теореме - сетевые разделения происходят и не все системы могут полноценно обрабатывать их.
 
-Network partitions are tricky because during a network partition, it is not possible to distinguish between a failed remote node and the node being unreachable. If a network partition occurs but no nodes fail, then the system is divided into two partitions which are simultaneously active. The two diagrams below illustrate how a network partition can look similar to a node failure.
+Разделения сети коварны потому что во время сетевого разделения не возможно различать упавший узел от узла который отделен от остальных упашей сетью. Если происходит сетевое разделение, и при этом все узлы активны, тогда система разделяется на две партиции которые одновременно активн. 2 диаграммы ниже иллюстрируют как сетевое разделение может быть похожим на падение узла.
 
-A system of 2 nodes, with a failure vs. a network partition:
+Система с 2 узлами, при падении узла и при разделении сети:
 
 <img src="images/system-of-2.png" alt="replication" style="max-height: 100px;">
 
-A system of 3 nodes, with a failure vs. a network partition:
+Система с 3 узлами, при падении узла и при разделении сети:
 
 <img src="images/system-of-3.png" alt="replication"  style="max-height: 130px;">
 
-A system that enforces single-copy consistency must have some method to break symmetry: otherwise, it will split into two separate systems, which can diverge from each other and can no longer maintain the illusion of a single copy.
+Система обеспечивающая согласованность без расхождений должна иметь способ отличать такие ситуации: иначе она будет разбита на две одинаковые системы которые могут расходится и система перестанет поддерживать иллюзию работы в единственном экземпляре.
 
-Network partition tolerance for systems that enforce single-copy consistency requires that during a network partition, only one partition of the system remains active since during a network partition it is not possible to prevent divergence (e.g. CAP theorem).
+Устойчивость к сетевым разделениям для систем обеспечивающих согласованность без расхождений, требует чтобы во время сетевого разделения только одна часть системы была активной, так как работе разделенной системе не возможно предотвратить расхождения(вспоминаем CAP теорему).
 
-### Majority decisions
+### Решения основанные на большинстве
 
 This is why partition tolerant consensus algorithms rely on a majority vote. Requiring a majority of nodes - rather than all of the nodes (as in 2PC) - to agree on updates allows a minority of the nodes to be down, or slow, or unreachable due to a network partition. As long as `(N/2 + 1)-of-N` nodes are up and accessible, the system can continue to operate.
 
