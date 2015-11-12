@@ -199,27 +199,27 @@ P/B очень общий алгоритм. Для примера, по умол
 
 Большинство также полезно потому что оно устойчиво к несогласию узлов: если есть искажения или отказы, тогда узлы могут проголосовать по-разному. Однако, поскольку может быть только одно решение принятое большинством, временное несогласие может заблокировать принятие окончательного решения(отказ от свойства живучести) но не может нарушить критерий целостности "единой копии" (свойство корректности).
 
-### Roles
+### Роли
 
-There are two ways one might structure a system: all nodes may have the same responsibilities, or nodes may have separate, distinct roles.
+Существует два способа выстраивать систему: либо все узлы имеют одни и теже обязанности, либо разные узлы могут иметь разные роли.
 
-Consensus algorithms for replication generally opt for having distinct roles for each node. Having a single fixed leader or master server is an optimization that makes the system more efficient, since we know that all updates must pass through that server. Nodes that are not the leader just need to forward their requests to the leader.
+Алгоритмы консенсуса для репликации как правило разделяют роли между узлами. Наличие одного зафиксированного лидера или мастер-сервера это оптимизация которая делает системы более эффективной, так как мы знаем, что все обновления должны пройти через этот сервер. Узлы которые не являются лидером должны передавать запросы, пришедшие к ним, лидеру.
 
-Note that having distinct roles does not preclude the system from recovering from the failure of the leader (or any other role). Just because roles are fixed during normal operation doesn't mean that one cannot recover from failure by reassigning the roles after a failure (e.g. via a leader election phase). Nodes can reuse the result of a leader election until node failures and/or network partitions occur.
+Заметим что наличие различных ролей не исключает востановления системы после отказа лидера(или другого узла). То что роли закреплены за узлами не означает, что при востановлении после сбоя может произойти переназначение ролей(например при помощи фазы выдвижения лидера). Узлы могу повторно использовать результат выбора лидера повторно пока не произойдет новый сбой узлов или сетевой раздел.
 
-Both Paxos and Raft make use of distinct node roles. In particular, they have a leader node ("proposer" in Paxos) that is responsible for coordination during normal operation. During normal operation, the rest of the nodes are followers ("acceptors" or "voters" in Paxos).
+И Paxos и Raft используют разные роли для разных узлов. Обычно, они определяют лидера(предлагающий узел ("proposer") в Paxos) который отвечает за координацию во время нормальной работы системы. Во это время остальные узлы это "последователи"(followers) (принимающие ("acceptors") или голосующие("voters") узлы в Paxos).
 
-### Epochs
+### Эпохи
 
-Each period of normal operation in both Paxos and Raft is called an epoch ("term" in Raft). During each epoch only one node is the designated leader (a similar system is [used in Japan](http://en.wikipedia.org/wiki/Japanese_era_name) where era names change upon imperial succession).
+Каждый период нормального выполнения операции и в Paxos и в Raft называется эпохой("epoch") ("term" в Raft).  Во время каждой эпохи только один узел назначен лидером(похожая система [используется в Японии](http://en.wikipedia.org/wiki/Japanese_era_name) где названия эпох сменяется вместе со сменой императоров).
 
 <img src="images/epoch.png" alt="replication"  style="max-height: 130px;">
 
-After a successful election, the same leader coordinates until the end of the epoch. As shown in the diagram above (from the Raft paper), some elections may fail, causing the epoch to end immediately.
+После успешного выбора, лидер будет координировать систему пока не кончится эпоха. Как показано на диаграмме выше(из публикации о Raft), некотрые выборы лидера могут неудастся, что вызовет немедленный конец эпохи.
 
-Epochs act as a logical clock, allowing other nodes to identify when an outdated node starts communicating - nodes that were partitioned or out of operation will have a smaller epoch number than the current one, and their commands are ignored.
+Эпохи работают как логические часы позволяющие узлам определить когда узлы с устаревшими данными начинают сообщатся с ними - узлы бывшие в отделенной части или были выведены из эксплутуации будут иметь меньший номер эпохи чем текущее значение эпохи работающих узлов, соотвественно команды устаревших узлов будут игнорироватся.
 
-### Leader changes via duels
+### Смена лидера при помощи дуэл
 
 During normal operation, a partition-tolerant consensus algorithm is rather simple. As we've seen earlier, if we didn't care about fault tolerance, we could just use 2PC. Most of the complexity really arises from ensuring that once a consensus decision has been made, it will not be lost and the protocol can handle leader changes as a result of a network or node failure.
 
