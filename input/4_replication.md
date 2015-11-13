@@ -219,37 +219,37 @@ P/B очень общий алгоритм. Для примера, по умол
 
 Эпохи работают как логические часы позволяющие узлам определить когда узлы с устаревшими данными начинают сообщатся с ними - узлы бывшие в отделенной части или были выведены из эксплутуации будут иметь меньший номер эпохи чем текущее значение эпохи работающих узлов, соотвественно команды устаревших узлов будут игнорироватся.
 
-### Смена лидера при помощи дуэл
+### Смена лидера при помощи дуэли
 
-During normal operation, a partition-tolerant consensus algorithm is rather simple. As we've seen earlier, if we didn't care about fault tolerance, we could just use 2PC. Most of the complexity really arises from ensuring that once a consensus decision has been made, it will not be lost and the protocol can handle leader changes as a result of a network or node failure.
+Во время нормальной операции, алгоритм консенсуса устойчивый к разделению довольно прост. Как мы увидели раньше, если мы не беспокоимся об устойчивости мы можем просто использовать 2PC. Более сложным является обеспечение условия что как только решение путем консенсуса было принято оно не будет потеряно и протокол сможет корректно обрабатывать смену лидера в результате сетевого сбоя или падения узла.
 
-All nodes start as followers; one node is elected to be a leader at the start. During normal operation, the leader maintains a heartbeat which allows the followers to detect if the leader fails or becomes partitioned.
+Все узлы начинают как ведомые(followers); один узел выбирается в лидеры на старте. Во время нормальной работы систем, лидер поддерживает индикатор своего состояния("heartbeat") который позволяет ведомым узлам определить когда лидер упал или оказался отделенным.
 
-When a node detects that a leader has become non-responsive (or, in the initial case, that no leader exists), it switches to an intermediate state (called "candidate" in Raft) where it increments the term/epoch value by one, initiates a leader election and competes to become the new leader.
+Когда узел определяет что лидер неотвечает(или в случае старта работы системы - лидера просто нету), он переключается в промежуточное состояние ("кандидата" в Raft) в котором он увеличивает счетчик эпохи на один, иницирует выборы лидера и соревнуется за то чтобы стать лидером с другими кандидатами.
 
-In order to be elected a leader, a node must receive a majority of the votes. One way to assign votes is to simply assign them on a first-come-first-served basis; this way, a leader will eventually be elected. Adding a random amount of waiting time between attempts at getting elected will reduce the number of nodes that are simultaneously attempting to get elected.
+Для того чтобы быть избранным лидером, узел должен получить большинство голосов. Один способ это присвоить голоса простым присвоением их по приниципу "первым прибыл - первым получил; в этом способе лидер будет выбран в конечном итоге. Добавление случайного количества времени ожидания между попытками узлов быть конкурировать за место лидера будут сокращать число узлов которые вытаются быть выбранными одновременнно.
 
-### Numbered proposals within an epoch
+### Номерованные предложения в пределах эпохи
 
-During each epoch, the leader proposes one value at a time to be voted upon. Within each epoch, each proposal is numbered with a unique strictly increasing number. The followers (voters / acceptors) accept the first proposal they receive for a particular proposal number.
+Во время каждой эпохи лидер предлагает одно значение для голосования в один момент времени. В пределах эпохи каждое предложение нумеруется уникальным возрастающим числом. Ведомые(избирающие / акцепторы) принимают первое предложение с определенным номером предположения.
 
-### Normal operation
+### Нормальное проведение операций
 
-During normal operation, all proposals go through the leader node. When a client submits a proposal (e.g. an update operation), the leader contacts all nodes in the quorum. If no competing proposals exist (based on the responses from the followers), the leader proposes the value. If a majority of the followers accept the value, then the value is considered to be accepted.
+Во время нормальной операции, все предложения проходят через лидера. Когда клиент отправляет предложение(например иницирует операцию обновления), лидер контактирует со всеми узлами объединяя их в кворум. Если нет конкурирующих предложений (на основе полученных ответов от ведомых узлов), лидер предлагает значение. Если большинство узлов принимают значение, следовательно данное значение считается принятым.
 
-Since it is possible that another node is also attempting to act as a leader, we need to ensure that once a single proposal has been accepted, its value can never change. Otherwise a proposal that has already been accepted might for example be reverted by a competing leader. Lamport states this as:
+Так как возможно, что другой узел также возможно пытается выступать в качестве лидера, мы должны гарантировать что конгда одно предложение было принято, его значение никогда не будет изменено. Иначе предложение которое уже было принято может быть к примеру отменено конкурирующим лидером. Лэмпорт говорит об этом так:
 
-> P2: If a proposal with value `v` is chosen, then every higher-numbered proposal that is chosen has value `v`.
+> P2: Если предложение со значением `v` было выбрано, тогда каждое предложение с большим номером должно предполагать что выбранное значение содержит `v`.
 
-Ensuring that this property holds requires that both followers and proposers are constrained by the algorithm from ever changing a value that has been accepted by a majority. Note that "the value can never change" refers to the value of a single execution (or run / instance / decision) of the protocol. A typical replication algorithm will run multiple executions of the algorithm, but most discussions of the algorithm focus on a single run to keep things simple. We want to prevent the decision history from being altered or overwritten.
+Для того чтобы это свойство было удовлетворено требуется чтобы и ведомые и предлагающие узлы были ограничены алгоритмом от изменений значений которые были приняты большинством. Заметим что "значение никогда не должно быть изменено" относится к значению времени одного исполнения(или запуска / экземпляра / решения) протокола. Типичные алгоритмы репликации запускаются несколько экземпляров алгоритма, но большинство обсуждений алгоритмов фокусируются на одном экземпляре алгоритма для большей простоты понимания. Мы хотим предотвратить историю решений от изменений или удаления.
 
-In order to enforce this property, the proposers must first ask the followers for their (highest numbered) accepted proposal and value. If the proposer finds out that a proposal already exists, then it must simply complete this execution of the protocol, rather than making its own proposal. Lamport states this as:
+Для соблюдения этого свойства, предлагающие узлы должны сперва спрашивать ведомые узлы о их (последнем) принятом предложении и значении этого предложения. Если предлагающий узел находит что предложение уже существует, тогда предложение просто отмечается как исполненное вместо того чтобы предлагать его. Лэмпорт говорит об этом так:
 
-> P2b. If a proposal with value `v` is chosen, then every higher-numbered proposal issued by any proposer has value `v`.
+> P2b. Если предложение со значением `v` было выбрано, огда каждое предложение с большим номером выданное любым предлагающим узлом должно содержать значение `v`.
 
-More specifically:
+Более подробно:
 
-> P2c. For any `v` and `n`, if a proposal with value `v` and number `n` is issued [by a leader], then there is a set `S` consisting of a majority of acceptors [followers] such that either (a) no acceptor in `S` has accepted any proposal numbered less than `n`, or (b) `v` is the value of the highest-numbered proposal among all proposals numbered less than `n` accepted by the followers in `S`.
+> P2c. Для любого `v` и `n`, если предложение со значением `v` и номером `n` было предложено [лидером], тогда существует множество `S` содержащее большинство принимающих [ведомых] таким образом что либо (a) нет принимающих узлов в `S` которые приняли любое предложение с номером меньше `n` либо (b) `v` это значение последнего по номеру предложения среди всех предложений с номерами меньше чем `n` принятых ведомыми узлами из `S`.
 
 This is the core of the Paxos algorithm, as well as algorithms derived from it. The value to be proposed is not chosen until the second phase of the protocol. Proposers must sometimes simply retransmit a previously made decision to ensure safety (e.g. clause b in P2c) until they reach a point where they know that they are free to impose their own proposal value (e.g. clause a).
 
