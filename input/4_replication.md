@@ -251,29 +251,27 @@ P/B очень общий алгоритм. Для примера, по умол
 
 > P2c. Для любого `v` и `n`, если предложение со значением `v` и номером `n` было предложено [лидером], тогда существует множество `S` содержащее большинство принимающих [ведомых] таким образом что либо (a) нет принимающих узлов в `S` которые приняли любое предложение с номером меньше `n` либо (b) `v` это значение последнего по номеру предложения среди всех предложений с номерами меньше чем `n` принятых ведомыми узлами из `S`.
 
-This is the core of the Paxos algorithm, as well as algorithms derived from it. The value to be proposed is not chosen until the second phase of the protocol. Proposers must sometimes simply retransmit a previously made decision to ensure safety (e.g. clause b in P2c) until they reach a point where they know that they are free to impose their own proposal value (e.g. clause a).
+Это ядро алгоритма Paxos, а также алгоритмов выросших из него. Значение которое было предложено не будет выбрано до второй фазы протокола. Предлагающие узлы должны иногда передавать предыдущее принятое решение для обеспечения корректности(это обеспечит утверждения b в P2c), пока они не достигают точки после которой они будут уверены что смогут заставить узлы принять предлагаемое значение (например такой точкой будет ситуация в утверждении a).
 
-If multiple previous proposals exist, then the highest-numbered proposal value is proposed. Proposers may only attempt to impose their own value if there are no competing proposals at all.
+Если сущестует несколько предыдуших предложений, тогда будет предложено значение из предложения с наибольшим номером. Предлагающие могут попытатся навязать их значение только если совсем нет других конкурирующих предложений.
 
-To ensure that no competing proposals emerge between the time the proposer asks each acceptor about its most recent value, the proposer asks the followers not to accept proposals with lower proposal numbers than the current one.
+Для того чтобы обеспечить гарантию того что конкурирующее предложение не всплывет во время между опросами лидером(предлагающим) каждого акцептора о последнем значении, предлагающий узел говорит ведомым не принимать предложения с более низким номером предложения чем текущее.
 
-Putting the pieces together, reaching a decision using Paxos requires two rounds of communication:
+Объединив все части вместе, принятие решения при помощи Paxos требует два раунда коммуникаций:
 
-    [ Proposer ] -> Prepare(n)                                [ Followers ]
-                 <- Promise(n; previous proposal number
-                    and previous value if accepted a
-                    proposal in the past)
+    [ Предлагающий узел ] -> Подготовка(n)                                [ Ведомые узлы ]
+                 <- Обещание(n; предыдущий номер предложения и предыдущее значение если прошлое предложение было принято)
 
-    [ Proposer ] -> AcceptRequest(n, own value or the value   [ Followers ]
-                    associated with the highest proposal number
-                    reported by the followers)
-                    <- Accepted(n, value)
+    [ Предлагающий ] -> ПринятьЗапрос(n, значение предлагающего узла или значение  [ Ведомых ]
+                    ассоцированное с наибольшим по номеру предложением
+                    полученным от фолловеров)
+                    <- Принято(n, значение)
 
-The prepare stage allows the proposer to learn of any competing or previous proposals. The second phase is where either a new value or a previously accepted value is proposed. In some cases - such as if two proposers are active at the same time (dueling); if messages are lost; or if a majority of the nodes have failed - then no proposal is accepted by a majority. But this is acceptable, since the decision rule for what value to propose converges towards a single value (the one with the highest proposal number in the previous attempt).
+Стадия подготовки позволяет предлагающему узлу узнать о любых конкурирующих или предыдущих предложениях. Во второй фазе будет предложено либо новое значение либо предыдущие принятое значение. В некотрых случаях - таких как когда активны два предлагающих узлах в одно и тоже время(дуэль); когда сообщения потеряны; или большинство узлов отказали - тогда не одно предложение не будет принято большинством. Однако это приемлимо, так как правило принятия решения гласит что предложенное значение сходится к одному значению (с наибольшим номером предложения в прошлой попытке).
 
-Indeed, according to the FLP impossibility result, this is the best we can do: algorithms that solve the consensus problem must either give up safety or liveness when the guarantees regarding bounds on message delivery do not hold. Paxos gives up liveness: it may have to delay decisions indefinitely until a point in time where there are no competing leaders, and a majority of nodes accept a proposal. This is preferable to violating the safety guarantees.
+Действительно, в соотвествии с FLP теоремой, это лучшее что мы можем получить: алгоритмы которые решают проблему консенсуса должны пожертвовать либо корректностью либо живучестью если нет гарантий на длительность доставки сообщений. Paxos жертвует живучестью: принятие решения может быть отложено на неопределенный срок до того времени пока не будет конкурирующих лидеров, и большинство узлов примет значение. Это предпочтительнее нарушения гарантий корректности.
 
-Of course, implementing this algorithm is much harder than it sounds. There are many small concerns which add up to a fairly significant amount of code even in the hands of experts. These are issues such as:
+Конечно, реализация этого алгоритма намного сложнее чем может показатся. Есть много небольших проблем который добавляют довольно значительное количество кода даже в руках экспертов. These are issues such as:
 
 - practical optimizations:
   - avoiding repeated leader election via leadership leases (rather than heartbeats)
