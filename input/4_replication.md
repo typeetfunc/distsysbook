@@ -271,61 +271,61 @@ P/B очень общий алгоритм. Для примера, по умол
 
 Действительно, в соотвествии с FLP теоремой, это лучшее что мы можем получить: алгоритмы которые решают проблему консенсуса должны пожертвовать либо корректностью либо живучестью если нет гарантий на длительность доставки сообщений. Paxos жертвует живучестью: принятие решения может быть отложено на неопределенный срок до того времени пока не будет конкурирующих лидеров, и большинство узлов примет значение. Это предпочтительнее нарушения гарантий корректности.
 
-Конечно, реализация этого алгоритма намного сложнее чем может показатся. Есть много небольших проблем который добавляют довольно значительное количество кода даже в руках экспертов. These are issues such as:
+Конечно, реализация этого алгоритма намного сложнее чем может показатся. Есть много небольших проблем который добавляют довольно значительное количество кода даже в руках экспертов. Это такие проблемы как:
 
-- practical optimizations:
-  - avoiding repeated leader election via leadership leases (rather than heartbeats)
-  - avoiding repeated propose messages when in a stable state where the leader identity does not change
-- ensuring that followers and proposers do not lose items in stable storage and that results stored in stable storage are not subtly corrupted (e.g. disk corruption)
-- enabling cluster membership to change in a safe manner (e.g. base Paxos depends on the fact that majorities always intersect in one node, which does not hold if the membership can change arbitrarily)
-- procedures for bringing a new replica up to date in a safe and efficient manner after a crash, disk loss or when a new node is provisioned
-- procedures for snapshotting and garbage collecting the data required to guarantee safety after some reasonable period (e.g. balancing storage requirements and fault tolerance requirements)
+- практические оптимизации:
+  - избавление от повторных выборов лидера при помощи "аренды" лидерства (а не проверок жизнеспособности лидера)
+  - избежание повторных предложений сообщений когда система находится в стабильном состоянии и лидер не изменяется
+- обеспечние надежности сохранения данных в стабильных хранилищах лидера и ведомых узлов в случае отказа хранлищ(к примеру разрушения диска)
+- возможность безопасного включения/исключения из кластера(например базовый Paxos зависит от того факта что большинство всегда отделяется в одном узле, который не может обработать произвольные включения исключения из кластера)
+- процедуры для доведения новой реплики до актуального состояния в случае после востановления или потери диска или при добавлении нового узла
+- процедуры для бэкапинга и сборки мусора необходимых для обеспечения корректности после некотрого времени работы (компромисс между требованием к хранению данных и устойчивости при откаазах)
 
-Google's [Paxos Made Live](http://labs.google.com/papers/paxos_made_live.html) paper details some of these challenges.
+Публикация Google [Paxos Made Live](http://labs.google.com/papers/paxos_made_live.html) более детально освещает эти задачи.
 
-## Partition-tolerant consensus algorithms: Paxos, Raft, ZAB
+## Алгоритмы консенсуса устойчивые к разделению: Paxos, Raft, ZAB
 
-Hopefully, this has given you a sense of how a partition-tolerant consensus algorithm works. I encourage you to read one of the papers in the further reading section to get a grasp of the specifics of the different algorithms.
+Надеюсь, вы теперь имеете представление о том как работают алгоритмы консенсуса устойчивые к разделению. Для лучшего понимания специфики конкретных алгоритмов необходимо прочитать статьи указанные в конце главе.
 
-*Paxos*. Paxos is one of the most important algorithms when writing strongly consistent partition tolerant replicated systems. It is used in many of Google's systems, including the [Chubby lock manager](http://research.google.com/archive/chubby.html) used by [BigTable](http://research.google.com/archive/bigtable.html)/[Megastore](http://research.google.com/pubs/pub36971.html), the Google File System as well as [Spanner](http://research.google.com/archive/spanner.html).
+*Paxos*. Paxos это один из наиболее важных алгоритмов для случая когда создаются строго согласованные реплицированные системы с устойчивостью к разделению. Он используется во многих системах Google, включая [менеджер блокировок Chubby](http://research.google.com/archive/chubby.html) использующийся в [BigTable](http://research.google.com/archive/bigtable.html)/[Megastore](http://research.google.com/pubs/pub36971.html), Google File System а также [Spanner](http://research.google.com/archive/spanner.html).
 
-Paxos is named after the Greek island of Paxos, and was originally presented by Leslie Lamport in a paper called "The Part-Time Parliament" in 1998. It is often considered to be difficult to implement, and there have been a series of papers from companies with considerable distributed systems expertise explaining further practical details (see the further reading). You might want to read Lamport's commentary on this issue [here](http://research.microsoft.com/en-us/um/people/lamport/pubs/pubs.html#lamport-paxos) and [here](http://research.microsoft.com/en-us/um/people/lamport/pubs/pubs.html#paxos-simple).
+Paxos назван в честь греческого острова Паксос, и был представлен Лесли Лэмпортом(Leslie Lamport) в публикации "Частичный парламент" в 1998. Он часто считается крайне трудным для реализации, и есть серия работ от компаний обладающих опытом в области распределенных систем, объясняюших многие практические детали(см. материалы для дальнейшего чтения). Возможно вам будет полезно прочитать комментарии Лэмпорта об этих проблемах [здесь](http://research.microsoft.com/en-us/um/people/lamport/pubs/pubs.html#lamport-paxos) и [здесь](http://research.microsoft.com/en-us/um/people/lamport/pubs/pubs.html#paxos-simple).
 
-The issues mostly relate to the fact that Paxos is described in terms of a single round of consensus decision making, but an actual working implementation usually wants to run multiple rounds of consensus efficiently. This has led to the development of many [extensions on the core protocol](http://en.wikipedia.org/wiki/Paxos_algorithm) that anyone interested in building a Paxos-based system still needs to digest. Furthermore, there are additional practical challenges such as how to facilitate cluster membership change.
+Большая часть проблем относится к тому факту что Paxos опичан в терминах одного раунда консенсуса, но актуальные работающие реализации обычно хотят запускать несколько раундов консенсуса для эффективности. Это привело к разработке многих  [расширений ядра протокола](http://en.wikipedia.org/wiki/Paxos_algorithm)  которые необходимо изучить тем кто заинтересован в построении системы основанной на Paxos. Кроме того, существуют дополнительные практические задачи такие как упростить изменение размеров кластера.
 
-*ZAB*. ZAB - the Zookeeper Atomic Broadcast protocol is used in Apache Zookeeper. Zookeeper is a system which provides coordination primitives for distributed systems, and is used by many Hadoop-centric distributed systems for coordination (e.g. [HBase](http://hbase.apache.org/), [Storm](http://storm-project.net/), [Kafka](http://kafka.apache.org/)). Zookeeper is basically the open source community's version of Chubby. Technically speaking atomic broadcast is a problem different from pure consensus, but it still falls under the category of partition tolerant algorithms that ensure strong consistency.
+*ZAB*. ZAB - Zookeeper Atomic Broadcast протокол используемый в Apache Zookeeper. Zookeeper это система которая предоставляет примитивы для координации для распределенных систем, и используемая в многих Hadoop-ориентированных распределенных системах для координации (например [HBase](http://hbase.apache.org/), [Storm](http://storm-project.net/), [Kafka](http://kafka.apache.org/)). Zookeeper это в основном открытая версия Chubby. технически атомарный броадкастинг это другая проблема нежели чистая проблема консенсуса, но она также подпадает под категорию алгоритмов устойчивых к разделению предоставлящих строгую согласованность.
 
-*Raft*. Raft is a recent (2013) addition to this family of algorithms. It is designed to be easier to teach than Paxos, while providing the same guarantees. In particular, the different parts of the algorithm are more clearly separated and the paper also describes a mechanism for cluster membership change. It has recently seen adoption in [etcd](https://github.com/coreos/etcd) inspired by ZooKeeper.
+*Raft*. Raft это недавнее (2013) пополнение в группе алгоритмов. Разработанный чтобы быть проще в понимании, он представляет техе гарантии. В частности, различные части алгоритма лучше разделены и в документе также описан механизм для изменения членства в кластере. Существует реализация в [etcd](https://github.com/coreos/etcd) вдохновленнная ZooKeeper.
 
-## Replication methods with strong consistency
+## Методы репликации с строгой согласованностью
 
-In this chapter, we took a look at replication methods that enforce strong consistency. Starting with a contrast between synchronous work and asynchronous work, we worked our way up to algorithms that are tolerant of increasingly complex failures. Here are some of the key characteristics of each of the algorithms:
+В этой главе, мы как взглянули на методы репликации которые обеспечивают строгую согласованность. Начав с различий между синхронными и асинхронными действиями,  Starting with a contrast between synchronous work and asynchronous work, мы проложили себе путь к алгоритмам которые способны выдерживать более сложные проблемы. приведем некотрые харатеристики изученных алгоритмов:
 
 #### Primary/Backup
 
-- Single, static master
-- Replicated log, slaves are not involved in executing operations
-- No bounds on replication delay
-- Not partition tolerant
-- Manual/ad-hoc failover, not fault tolerant, "hot backup"
+- Единственный и неизменный мастер
+- Репликация лога, реплики не учавствуют в операциях
+- Нет границ для задержки репликации
+- Неустойчиво к разделению
+- Ручной/ситуационный фейловер(постанновление после отказа), не устойчиво к отказам, можно использовать как "живой бэкап"
 
 #### 2PC
 
-- Unanimous vote: commit or abort
-- Static master
-- 2PC cannot survive simultaneous failure of the coordinator and a node during a commit
-- Not partition tolerant, tail latency sensitive
+- Единогласное голосование: потвердить или отвергнуть
+- Единственный мастер
+- 2PC не переносит одновременного отказа координатора и узла во время подтверждения операции
+- Не устойчив к разделению, чувствителен к задержкам
 
 #### Paxos
 
-- Majority vote
-- Dynamic master
-- Robust to n/2-1 simultaneous failures as part of protocol
-- Less sensitive to tail latency
+- Голосование большинства
+- Динамическое изменение лидера
+- Устойчивость к n/2-1 одновременно отказавшим узлам, как часть протокола
+- Малая чувствительность к задержкам
 
 ---
 
-## Further reading
+## Для дальнейшего чтения
 
 #### Primary-backup and 2PC
 
