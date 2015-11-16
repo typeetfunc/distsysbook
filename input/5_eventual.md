@@ -1,25 +1,25 @@
-# %chapter_number%. Replication: weak consistency model protocols
+# %chapter_number%. Репликация: протоколы обеспечивающие слабую согласованность
 
-Now that we've taken a look at protocols that can enforce single-copy consistency under an increasingly realistic set of supported failure cases, let's turn our attention at the world of options that opens up once we let go of the requirement of single-copy consistency.
+Сейчас, после того как мы расмотрели протоколы которые обеспечивают последовательную согласованность с учетом возрастающего количества обрабатываемых типов отказов, давайте вернемся к пространству возможных опций, которое открывается если мы откажемся от требования последовательной согласованности(без расхождений).
 
-By and large, it is hard to come up with a single dimension that defines or characterizes the protocols that allow for replicas to diverge. Most such protocols are highly available, and the key issue is more whether or not the end users find the guarantees, abstractions and APIs useful for their purpose in spite of the fact that the replicas may diverge when node and/or network failures occur.
+В общем и целом, трудно придумать одно измерение которое будет определять или характиризовать протоколы позволяющие репликам расходится. Большинство таких протоколов обеспечивают высокую доступность и ключевой проблемой является смогут ли конечные пользователи найти гарантии, абстракции, API полезные для их нужд, несмотря на то что реплики могут расходится, когда отказывают узлы или рвется сеть.
 
-Why haven't weakly consistent systems been more popular?
+Почему слабо согласованные системы менее популярны?
 
-As I stated in the introduction, I think that much of distributed programming is about dealing with the implications of two consequences of distribution:
+Как я говорил в введении, я думаю что многое в распределенном программировании следует из двух последствий распределенности:
 
-- that information travels at the speed of light
-- that independent things fail independently
+- информация путешествует со скоростью света
+- независимые вещи отказывают независимо
 
-The implication that follows from the limitation on the speed at which information travels is that nodes experience the world in different, unique ways. Computation on a single node is easy, because everything happens in a predictable global total order. Computation on a distributed system is difficult, because there is no global total order.
+Следствием того что скорость распространения информации ограничена, является то что каждый узел воспринимает окружающий мир по-своему. Вычисления на одному узле просты, так как все случается в определенном глобальном и абсолютном порядке. Вычисления на распределенной системе сложны, так как глобального  и абсолютного порядка нет.
 
-For the longest while (e.g. decades of research), we've solved this problem by introducing a global total order. I've discussed the many methods for achieving strong consistency by creating order (in a fault-tolerant manner) where there is no naturally occurring total order.
+Долгое время (десятилетия исследований), мы решали эту проблему введение глобального порядка. Мы обсудили много методов достигающий последовательной согласованности путем создания порядка(с учетом устойчивости к отказам) когда естественного порядка не было.
 
-Of course, the problem is that enforcing order is expensive. This breaks down in particular with large scale internet systems, where a system needs to remain available. A system enforcing strong consistency doesn't behave like a distributed system: it behaves like a single system, which is bad for availability during a partition.
+Конечно, проблема в том что создание порядка крайне затратно. Это зачастую просто невозможно в больших системах работающих в интернете, когда система должна оставатся доступна. Система соблюдающая строгую согласованность ведет себя не как распределенная: она ведет себя как единая система, что плохо для доступности во время разделений.
 
-Furthermore, for each operation, often a majority of the nodes must be contacted - and often not just once, but twice (as you saw in the discussion on 2PC). This is particularly painful in systems that need to be geographically distributed to provide adequate performance for a global user base.
+Кроме того, для каждой операции зачастую большинству узлов необходимо связатся друг с другом - и зачастую не один раз, а дважды(вспомним обсуждение 2PC). Это обычно крайне болезнено для систем которые нуждаются в географической распределенности для обеспечения адекватной производительности для пользователей в разных частях мира.
 
-So behaving like a single system by default is perhaps not desirable.
+Так что поведение системы по умолчанию как единого целого возможно не желательно.
 
 Perhaps what we want is a system where we can write code that doesn't use expensive coordination, and yet returns a "usable" value. Instead of having a single truth, we will allow different replicas to diverge from each other - both to keep things efficient but also to tolerate partitions - and then try to find a way to deal with the divergence in some manner.
 
