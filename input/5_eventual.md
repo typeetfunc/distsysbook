@@ -21,21 +21,21 @@
 
 Так что поведение системы по умолчанию как единого целого возможно не желательно.
 
-Perhaps what we want is a system where we can write code that doesn't use expensive coordination, and yet returns a "usable" value. Instead of having a single truth, we will allow different replicas to diverge from each other - both to keep things efficient but also to tolerate partitions - and then try to find a way to deal with the divergence in some manner.
+Возможно то что мы хотим, это система для которой мы можем писать код без больших затрат на координаци но при это продолжать получать пригодные для наших целей результаты. В замен единственно-верной версии данных, мы принимаем разные реплики с расхождениями между друг другом - это позволит сохранить эффективность и сохранить устойчивость к разделению - и затем мы попробуем найти способ справится с расхождениями каким либо образом.
 
-Eventual consistency expresses this idea: that nodes can for some time diverge from each other, but that eventually they will agree on the value.
+Согласованность в конечном итоге выражается в следующей идее: узлы которые могут иногда расходится в конечном итоге прийдут к согласию насчет единого значения.
 
-Within the set of systems providing eventual consistency, there are two types of system designs:
+Во всем множестве систем предоставляющем согласованность в конечном итоге, можно выделить два типа архитектур:
 
-*Eventual consistency with probabilistic guarantees*. This type of system can detect conflicting writes at some later point, but does not guarantee that the results are equivalent to some correct sequential execution. In other words, conflicting updates will sometimes result in overwriting a newer value with an older one and some anomalies can be expected to occur during normal operation (or during partitions).
+*Согласованность в конечном итоге с вероятностными гарантиями*. Этот тип систем может определять конфликты на каком то этапе после их появления, но не дает гарантий что результаты будут эквивалентны результатам корректного порядка исполнения операций. Другими словами, конфликтующие обновления иногда будут перезаписывать новые значения старыми и некотрые аномалии могут проявлятся во время нормального проведения операций(или во время разделения).
 
-In recent years, the most influential system design offering single-copy consistency is Amazon's Dynamo, which I will discuss as an example of a system that offers eventual consistency with probabilistic guarantees.
+В недавние годы,наиболее известная система жертвующая согласованностью на уровне одной копии это Amazon Dynamo, которую я буду обсуждать в качестве системы которая предалагает согласованность в конечном итоге с вероятностными гарантиями.
 
-*Eventual consistency with strong guarantees*. This type of system guarantees that the results converge to a common value equivalent to some correct sequential execution. In other words, such systems do not produce in anomalous results; without any coordination you can build replicas of the same service, and those replicas can communicate in any pattern and receive the updates in any order, and they will eventually agree on the end result as long as they all see the same information.
+*Согласованность в конечном итоге со строгими гарантиями*. Этот тип систем гарантирует что результат будет сходится к одному значению эквивалентному полученному при корректной последовательности операций. Другими словами, такие системы не приводят к аномальным результатам; без какой либо координации вы можете создавать реплики сервисов, которые будут коммуницировать любым способом и получать обновления в любом порядке и в конечном итоге они достигнут согласия насчет конечного результата на все время пока они будут видеть одну и туже информацию.
 
-CRDT's (convergent replicated data types) are data types that guarantee convergence to the same value in spite of network delays, partitions and message reordering. They are provably convergent, but the data types that can be implemented as CRDT's are limited.
+CRDT (сходяющиеся рпелицирующиеся типы данных) это типы данных гарантирующие сходимость к одному и тому же значению несмотря на разделы и задержки в сети и изменение порядка сообщений. Они доказанно сходимы, но ограничены типами данных которые могут быть реализованы как CRDT.
 
-The CALM (consistency as logical monotonicity) conjecture is an alternative expression of the same principle: it equates logical monotonicity with convergence. If we can conclude that something is logically monotonic, then it is also safe to run without coordination. Confluence analysis - in particular, as applied for the Bloom programming language - can be used to guide programmer decisions about when and where to use the coordination techniques from strongly consistent systems and when it is safe to execute without coordination.
+CALM (согласованность как логическая монотонность) гипотеза это альтернативное выражение тех же самых принципов: это уравнивание логической монотонности и сходимости. Если мы можем сделать вывод что чтолибо логически монотонно, тогда мы также можем безопастно запускать это без какой либо координации. Анализ слияний - в частности, применительно к языку программирования Bloom - может быть применен для принятия решений в программировании о том когда и где  использовать координационные техники из строго согласованной системы и когда можно безопастно выполнять операции не пребегая к вычислительно "дорогой" координации.
 
 ## Reconciling different operation orders
 
