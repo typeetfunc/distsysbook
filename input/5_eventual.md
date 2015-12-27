@@ -88,35 +88,35 @@ CALM (согласованность как логическая монотон�
 
 ## Amazon's Dynamo
 
-Amazon's Dynamo system design (2007) is probably the best-known system that offers weak consistency guarantees but high availability. It is the basis for many other real world systems, including LinkedIn's Voldemort, Facebook's Cassandra and Basho's Riak.
+Архитектура Amazon's Dynamo (2007) это возможно наиболее известный пример системы представляющей слабые гарантии согласованности и являющейся высоко-доступной системой. Это основа для многих промышленных систем таких как LinkedIn's Voldemort, Facebook's Cassandra и Basho's Riak.
 
-Dynamo is an eventually consistent, highly available key-value store. A key value store is like a large hash table: a client can set values via `set(key, value)` and retrieve them by key using `get(key)`. A Dynamo cluster consists of N peer nodes; each node has a set of keys which is it responsible for storing.
+Dynamo это ключ-значение хранилище обеспечивающее согласованность в конечном итоге и высокую доступность. Ключ-значение хранилище напоминает огромную хеш-таблицу: клиент может установить некоторое значение по ключу используя `set(key, value)` и получить некоторое значение по ключу используя `get(key)`. Dynamo кластер содержит N частей узлов; каждый узел отвечает за определенный набор ключей.
 
-Dynamo prioritizes availability over consistency; it does not guarantee single-copy consistency. Instead, replicas may diverge from each other when values are written; when a key is read, there is a read reconciliation phase that attempts to reconcile differences between replicas before returning the value back to the client.
+Dynamo разработана с приоритетом доступности над согласованностью; согласованность на уровне одной активной копии не гарантируется. Реплики могут расходится относительно друг друга когда значения записываются; во время чтения по ключу, происходит фаза согласования во время которой различия разных реплик обьединяются перед тем как возвратить результат клиенту.
 
-For many features on Amazon, it is more important to avoid outages than it is to ensure that data is perfectly consistent, as an outage can lead to lost business and a loss of credibility. Furthermore, if the data is not particularly important, then a weakly consistent system can provide better performance and higher availability at a lower cost than a traditional RDBMS.
+Для многих отраслей бизнесса Amazon, более важно избегать простоев нежели держать данные в полной консистентности, так как отключение может привести к бизнесс-потерям и утрате доверия клиентов. Более того, если данные не особо важные, тогда системы с слабой согласованностью могут предоставлять лучшую производительность и более высокую доступность с более низкими затратами нежели традиционные RDBMS.
 
-Since Dynamo is a complete system design, there are many different parts to look at beyond the core replication task. The diagram below illustrates some of the tasks; notably, how a write is routed to a node and written to multiple replicas.
+Dynamo это полная архитектура системы, в которой необходимо расмотреть много различных частей некоторые из которых выходят за рамки задачи репликации; особенно, как запись диспатчеризируется между узлами и как происходит запись на несколько узлов.
 
-    [ Client ]
+    [ Клиент ]
         |
-    ( Mapping keys to nodes )
+    ( Отображение ключей в узлы )
         |
         V
-    [ Node A ]
+    [ Узел A ]
         |     \
-    ( Synchronous replication task: minimum durability )
+    ( Синхронная часть репликации: минимум надежности )
         |        \
-    [ Node B]  [ Node C ]
+    [ Узел B]  [ Узел C ]
         A
         |
-    ( Conflict detection; asynchronous replication task:
-      ensuring that partitioned / recovered nodes recover )
+    ( Определение конфликта; асинхронная часть репликации:
+      обеспечивает востановление разделенных / упавших узлов )
         |
         V
-    [ Node D]
+    [ Узел D]
 
-After looking at how a write is initially accepted, we'll look at how conflicts are detected, as well as the asynchronous replica synchronization task. This task is needed because of the high availability design, in which nodes may be temporarily unavailable (down or partitioned). The replica synchronization task ensures that nodes can catch up fairly rapidly even after a failure.
+После того как мы взглянем как запись принимается после иницирования клиентов, мы посмотрим как обнаруживаются конфликты и на асинхронную часть репликации. Это часть необходима, из-за дизайна высоко-доступных решений, в которых узлы могут быть временно недоступны(изза отказа или разделения). Синхронизация реплик обеспечивает довольно быстрое приведение реплики к актуальному состоянию даже после отказа.
 
 ### Consistent hashing
 
