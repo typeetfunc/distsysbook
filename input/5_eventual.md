@@ -163,20 +163,20 @@ N редко больше 3, так как хранение большого ч�
 
 Что случится когда кворумы записи и чтения перекрываются то есть (`R + W > N`)? В частности, зачастую говорят что в  результате мы получим "строгую согласованность".
 
-### Is R + W > N the same as "strong consistency"?
+### R + W > N это тоже самое что и "строгая согласованность"?
 
-No.
+Нет.
 
-It's not completely off base: a system where `R + W > N` can detect read/write conflicts, since any read quorum and any write quorum share a member. E.g. at least one node is in both quorums:
+Для этого нет оснований: система где `R + W > N` может определять конфликты записи и чтения, так как кворумы для записи и чтения пересекаются. Например хотя бы один узел будет обоих кворумах:
 
        1     2   N/2+1     N/2+2    N
       [...] [R]  [R + W]   [W]    [...]
 
-This guarantees that a previous write will be seen by a subsequent read. However, this only holds if the nodes in N never change. Hence, Dynamo doesn't qualify, because in Dynamo the cluster membership can change if nodes fail.
+Это гарантирует что предыдущая запись будет видна для последующих чтений. Однако, это так только если число узлов N никогда не будет менятся. Следовательно, Dynamo не сдерживает этих гарантий, потому что в Dynamo кластер может быть изменен если узлы откажут.
 
-Dynamo is designed to be always writable. It has a mechanism which handles node failures by adding a different, unrelated server into the set of nodes responsible for certain keys when the original server is down. This means that the quorums are no longer guaranteed to always overlap. Even `R = W = N` would not qualify, since while the quorum sizes are equal to N, the nodes in those quorums can change during a failure. Concretely, during a partition, if a sufficient number of nodes cannot be reached, Dynamo will add new nodes to the quorum from unrelated but accessible nodes.
+Dynamo разработана чтобы быть всегда доступной для записи. Она содержит который обрабатывает отказ узлов путем добавления другого не связанного сервера в набор узлов отвественных за хранение определенных ключей пока другой узел не работает. Это означает что кворум не гарантирует пересечений всегда. Даже `R = W = N` не будет этого гарантировать, так как пока размер кворума N узлы в кворуме могут менятся изза отказов. В частности, во время раздела, если достаточное число узлов не может быть достигнуто, Dynamo будет добавлять новые узлы из несвязанных с исходными но доступных узлов.
 
-Furthermore, Dynamo doesn't handle partitions in the manner that a system enforcing a strong consistency model would: namely, writes are allowed on both sides of a partition, which means that for at least some time the system does not act as a single copy. So calling `R + W > N` "strongly consistent" is misleading; the guarantees merely probabilistic - which is not what strong consistency refers to.
+Кроме того, Dynamo не обрабатывает разделы так же как система с строгой согласованностью, а именно: она позволяет записывать данные по обе стороны раздела сети, это означает что система не действует так как если бы она не была распределенной. Поэтому называть `R + W > N` "строго согласованным" ошибочно; гарантии только лишь вероятностные - что не подходит для строго согласованной системы.
 
 ### Conflict detection and read repair
 
