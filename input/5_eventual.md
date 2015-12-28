@@ -118,50 +118,50 @@ Dynamo это полная архитектура системы, в котор�
 
 После того как мы взглянем как запись принимается после иницирования клиентов, мы посмотрим как обнаруживаются конфликты и на асинхронную часть репликации. Это часть необходима, из-за дизайна высоко-доступных решений, в которых узлы могут быть временно недоступны(изза отказа или разделения). Синхронизация реплик обеспечивает довольно быстрое приведение реплики к актуальному состоянию даже после отказа.
 
-### Consistent hashing
+### Согласованное хэширование(Consistent hashing)
 
-Whether we are reading or writing, the first thing that needs to happen is that we need to locate where the data should live on the system. This requires some type of key-to-node mapping.
+Записываем мы или читаем, первое что должно произойти мы должны определить где данные должны находится в системе. Это требует некотрого отображение ключей в узлы на которых они хранятся.
 
-In Dynamo, keys are mapped to nodes using a hashing technique known as [consistent hashing](https://github.com/mixu/vnodehash) (which I will not discuss in detail). The main idea is that a key can be mapped to a set of nodes responsible for it by a simple calculation on the client. This means that a client can locate keys without having to query the system for the location of each key; this saves system resources as hashing is generally faster than performing a remote procedure call.
+В Dynamo, ключи отображаются в узлы используя технику хеширования известную как [согласованное хеширование](https://github.com/mixu/vnodehash) (которое я не буду обсуждать детально). Главная идея это что ключи могут быть отображены в набор узлов при помощи простых вычислений на клиенте. Это значит что клиент может обнаружить ключи без запроса к системе для определения расположения ключа; это экономит системные ресурсы так как хеширование во много раз быстрее чем вызов удаленной процедуры.
 
-### Partial quorums
+### Частичный кворум
 
-Once we know where a key should be stored, we need to do some work to persist the value. This is a synchronous task; the reason why we will immediately write the value onto multiple nodes is to provide a higher level of durability (e.g. protection from the immediate failure of a node).
+После того как мы разобрались как ключ должен хранится, мы должны понять как хранится значение. Это синхронная задача; причина по которой нам надо записывать немедленно значение на несколько узлов это предоставление высокого уровня надежности (например для защиты от немедленного отказа узла).
 
-Just like Paxos or Raft, Dynamo uses quorums for replication. However, Dynamo's quorums are sloppy (partial) quorums rather than strict (majority) quorums.
+Так же как и Paxos или Raft, Dynamo использует кворумы для репликации. Однако Dynamo кворумы нестрогие(основанные только на часте узлов) в отличии от строгих(основанных на большинстве) кворумов.
 
-Informally, a strict quorum system is a quorum system with the property that any two quorums (sets) in the quorum system overlap. Requiring a majority to vote for an update before accepting it guarantees that only a single history is admitted since each majority quorum must overlap in at least one node. This was the property that Paxos, for example, relied on.
+Неформально, строгие системы кворумов это системы кворумов с таким свойством что любые два кворума в системе пересекаются. Требование большинства голосов для обновления перед его принятием гарантирует что только одна версия истории изменений будет признаной для каждого мажоритарного кворума так как каждый такой кворум будет пересекатся с другим хотя бы в одном узле. На это свойство опирается к примеру Paxos.
 
-Partial quorums do not have that property; what this means is that a majority is not required and that different subsets of the quorum may contain different versions of the same data. The user can choose the number of nodes to write to and read from:
+Частичный кворум не удовлетворяет этому свойству; это означает что большинство не требуется и различные подмножества кворума могут содержать различные версии одних и тех же данных. Юзер может выбирать число узлов для записи и чтения:
 
-- the user can choose some number W-of-N nodes required for a write to succeed; and
-- the user can specify the number of nodes (R-of-N) to be contacted during a read.
+- пользователь может выбрать некотрое число W-из-N узлов требуемое для того чтобы запись была успешна; и
+- пользователь может определить число узлов (R-из-N) которым необходимо контактировать при чтении.
 
-`W` and `R` specify the number of nodes that need to be involved to a write or a read. Writing to more nodes makes writes slightly slower but increases the probability that the value is not lost; reading from more nodes increases the probability that the value read is up to date.
+`W` и `R` определяет число узлов которые должны быть вовлечены в процесс записи и чтения. Запись с использованием большего числа узлов будет более медленной но повысит вероятность того что значение не будет потеряно; чтение с большего числа узлов повышает вероятность того что прочитанное значение будет актуально.
 
-The usual recommendation is that `R + W > N`, because this means that the read and write quorums overlap in one node - making it less likely that a stale value is returned. A typical configuration is `N = 3` (e.g. a total of three replicas for each value); this means that the user can choose between:
+Типичная рекомендация это `R + W > N`, потому что это означает что кворумы для чтения и записи пересекаются хотя бы в одном узле - что делает менее вероятным что устаревшее значение будет прочитано. Обычная конфигурация это `N = 3` (то есть всего 3 рпелики для каждого значения); это означает что юзер может выбирать между:
 
      R = 1, W = 3;
-     R = 2, W = 2 or
+     R = 2, W = 2 или
      R = 3, W = 1
 
-More generally, again assuming `R + W > N`:
+В более общем плане `R + W > N`:
 
-- `R = 1`, `W = N`: fast reads, slow writes
-- `R = N`, `W = 1`: fast writes, slow reads
-- `R = N/2` and `W = N/2 + 1`: favorable to both
+- `R = 1`, `W = N`: быстрое чтение, медленная запись
+- `R = N`, `W = 1`: быстрая запись, медленное чтение
+- `R = N/2` and `W = N/2 + 1`: хорошо и для того и для того
 
-N is rarely more than 3, because keeping that many copies of large amounts of data around gets expensive!
+N редко больше 3, так как хранение большого числа копий может быть дорогостояще для большого количества данных!
 
-As I mentioned earlier, the Dynamo paper has inspired many other similar designs. They all use the same partial quorum based replication approach, but with different defaults for N, W and R:
+Как я упомянал ранее, публикация Dynamo  вдохновила многие подобные системы. Они все используют репликацию на основе частичных кворумов, но с другими N, W и R по умолчанию:
 
-- Basho's Riak (N = 3, R = 2, W = 2 default)
-- Linkedin's Voldemort (N = 2 or 3, R = 1, W = 1 default)
-- Apache's Cassandra (N = 3, R = 1, W = 1 default)
+- Basho's Riak (N = 3, R = 2, W = 2 по умолчанию)
+- Linkedin's Voldemort (N = 2 or 3, R = 1, W = 1)
+- Apache's Cassandra (N = 3, R = 1, W = 1)
 
-There is another detail: when sending a read or write request, are all N nodes asked to respond (Riak), or only a number of nodes that meets the minimum (e.g. R or W; Voldemort). The "send-to-all" approach is faster and less sensitive to latency (since it only waits for the fastest R or W nodes of N) but also less efficient, while the "send-to-minimum" approach is more sensitive to latency (since latency communicating with a single node will delay the operation) but also more efficient (fewer messages / connections overall).
+Так же есть другой ньюанс: когда отправляется запрос на запись или чтение, все N узлов опрашиваются (Riak), или только некоторое число узлов - минимальный кворум (то есть R или W; Voldemort). Отправка всем более быстра и менее чувствительна к задержкам(так как можно ждать ответ только R или W узлов из N) но менее эффективен, Отправка запроса только минимуму узлов более чувствительна к задержкам(так как задержка в общении с одним узлом приведет к задержке всей операции) но более эффективно (меньше сообщений / соединений в целом)
 
-What happens when the read and write quorums overlap, e.g. (`R + W > N`)? Specifically, it is often claimed that this results in "strong consistency".
+Что случится когда кворумы записи и чтения перекрываются то есть (`R + W > N`)? В частности, зачастую говорят что в  результате мы получим "строгую согласованность".
 
 ### Is R + W > N the same as "strong consistency"?
 
