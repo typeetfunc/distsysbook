@@ -208,7 +208,7 @@ Dynamo разработана чтобы быть всегда доступно�
 
 Синхронизация реплик используется для обновления реплик до актуального состояния после отказа и для периодической синхронизации реплик между друг другом.
 
-Gossip это вероятностный способ для синхронизации реплик. Это паттерн коммуникации (то есть способ которым узел общается с узлом) не детерминирован заранее. Instead, nodes have some probability `p` of attempting to synchronize with each other. Every `t` seconds, each node picks a node to communicate with. This provides an additional mechanism beyond the synchronous task (e.g. the partial quorum writes) which brings the replicas up to date.
+Gossip это вероятностный способ для синхронизации реплик. Это паттерн коммуникации (то есть способ которым узел общается с узлом) не детерминирован заранее. Вместо этого, узлы имеют некотрую вероятность `p` того что узел попытается синхронизироватся с другими. Every `t` seconds, each node picks a node to communicate with. This provides an additional mechanism beyond the synchronous task (e.g. the partial quorum writes) which brings the replicas up to date.
 
 Gossip is scalable, and has no single point of failure, but can only provide probabilistic guarantees.
 
