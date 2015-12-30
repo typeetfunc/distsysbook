@@ -198,17 +198,17 @@ Dynamo разработана чтобы быть всегда доступно�
 
 Когда происходит чтение значения, клиент контактирует с `R` из `N` узлов и опрашивает их о последнем значении для ключа. Далее берет все их ответы и отбрасывает значения которые строго более старые(для этого используются векторные часы). Если остается только одна уникальная пара векторные часы + значение, тогда возвращается она. Если остается несколько таких пар(которые редактировались конкурентно), тогда возвращаются все они.
 
-As is obvious from the above, read repair may return multiple values. This means that the client / application developer must occasionally handle these cases by picking a value based on some use-case specific criterion.
+Из этого очевидно что чтение исправленных записей может возврашать множество значений. Это означает что клиент / приложение должно уметь время от времени обрабатывать случаи выбирая значение на основе конкретного критерия в каждом отдельном взятом случае.
 
-In addition, a key component of a practical vector clock system is that the clocks cannot be allowed to grow forever - so there needs to be a procedure for occasionally garbage collecting the clocks in a safe manner to balance fault tolerance with storage requirements.
+В дополнение, ключевой компонент промышленных систем с векторными часами это то что часы не могут расти вечно - так что необходимо иногда собирать мусор безопастным способом чтобы не нарушить требования отказоустойчивости хранилища.
 
-### Replica synchronization: gossip and Merkle trees
+### Синхронизация реплик: gossip и деревья Меркла
 
-Given that the Dynamo system design is tolerant of node failures and network partitions, it needs a way to deal with nodes rejoining the cluster after being partitioned, or when a failed node is replaced or partially recovered.
+При условии что Dynamo-архитектура устойчива к падениям узлов и разделениям сети, она должна уметь пересоединять кластер после разделения или заменять упавший узел или присоединять востановившийся.
 
-Replica synchronization is used to bring nodes up to date after a failure, and for periodically synchronizing replicas with each other.
+Синхронизация реплик используется для обновления реплик до актуального состояния после отказа и для периодической синхронизации реплик между друг другом.
 
-Gossip is a probabilistic technique for synchronizing replicas. The pattern of communication (e.g. which node contacts which node) is not determined in advance. Instead, nodes have some probability `p` of attempting to synchronize with each other. Every `t` seconds, each node picks a node to communicate with. This provides an additional mechanism beyond the synchronous task (e.g. the partial quorum writes) which brings the replicas up to date.
+Gossip это вероятностный способ для синхронизации реплик. Это паттерн коммуникации (то есть способ которым узел общается с узлом) не детерминирован заранее. Instead, nodes have some probability `p` of attempting to synchronize with each other. Every `t` seconds, each node picks a node to communicate with. This provides an additional mechanism beyond the synchronous task (e.g. the partial quorum writes) which brings the replicas up to date.
 
 Gossip is scalable, and has no single point of failure, but can only provide probabilistic guarantees.
 
