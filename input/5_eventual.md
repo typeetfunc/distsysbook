@@ -229,61 +229,61 @@ Gossip это масштабируемое и без единой точки о�
 
 PBS оценивает степень несогласованности используя информацию о уровне анти-энтропии (gossip), сетевых задержек и задержек локальной обработки чтобы определить ожилаемый уровень согласоваанности чтения. Этот прием реализован в Cassandra, где временная информация скомбинирована на разных сообщениях и оценка расчивается на основе этой информации сэмулированной методом Монте-Карло.
 
-Based on the paper, during normal operation eventually consistent data stores are often faster and can read a consistent state within tens or hundreds of milliseconds. The table below illustrates amount of time required from a 99.9% probability of consistent reads given different `R` and `W` settings on empirical timing data from LinkedIn (SSD and 15k RPM disks) and Yammer:
+Основываясь на публикации, во время нормальных операций(без каких либо сетевых и прочих проблем) время согласования данных зачастую намного меньше и можно читать согласованные данные за десятки-сотни миллисекунд. Таблица ниже показывает количество времени требуемое для 99.9% вероятности прочтения согласованных данных при различных настройках `R` и `W`(получена в результате анализа оптыных данных времени синхронизации из LinkedIn(SSD и 15k RPM disks) и Yammer) :
 
-![from the PBS paper](./images/pbs.png)
+![из публикации о PBS](./images/pbs.png)
 
-For example, going from `R=1`, `W=1` to `R=2`, `W=1` in the Yammer case reduces the inconsistency window from 1352 ms to 202 ms - while keeping the read latencies lower (32.6 ms) than the fastest strict quorum (`R=3`, `W=1`; 219.27 ms).
+Для примера, при переходе от `R=1`, `W=1` к `R=2`, `W=1` в Yammer продолжительность случаев несогласованности сокращается от 1352 мс до 202 мс - при удержани времени задержки при чтении на низком уровне (32.6 ms) что быстрее чем в режиме строгого кворума (`R=3`, `W=1`; 219.27 ms).
 
-For more details, have a look at the [PBS website](http://pbs.cs.berkeley.edu/)  and the associated paper.
+Для большего погружения, смотрите [PBS сайт](http://pbs.cs.berkeley.edu/) и саму публикацию.
 
-## Disorderly programming
+## Программирование в неупорядоченной манере
 
-Let's look back at the examples of the kinds of situations that we'd like to resolve. The first scenario consisted of three different servers behind partitions; after the partitions healed, we wanted the servers to converge to the same value. Amazon's Dynamo made this possible by reading from `R` out of `N` nodes and then performing read reconciliation.
+Давайте вернемся назад к примерам типов проблем которые нам бы хотелось решить. Первый сценарий содержит 3 различных сервера с разделением; когда разделение устранено, мы хотим чтобы сервера сошлись к одному и тому же значению. Amazon's Dynamo делает это возможным путем чтения значений с `R` из `N` узлов и после выполняя согласование значения.
 
-In the second example, we considered a more specific operation: string concatenation. It turns out that there is no known technique for making string concatenation resolve to the same value without imposing an order on the operations (e.g. without expensive coordination). However, there are operations which can be applied safely in any order, where a simple register would not be able to do so. As Pat Helland wrote:
+Во втором примере, у нас содержится более специфичная операция - соединение строк. Оказывается что мы не знаем технику сделать обьединение строк без учета порядка операций (то есть без дорогой координации). Однако, иммеются операции которые могут быть применены безопастно в любом порядке, там где простая запись не может гарантировать корректность. Как пишет Pat Helland:
 
-> ... operation-centric work can be made commutative (with the right operations and the right semantics) where a simple READ/WRITE semantic does not lend itself to commutativity.
+> ... Работа основанная на операциях может быть коммутативной (с правильными операциями и правильной семантикой) в то время как простая семантика ЗАПИСЬ/ЧТЕНИЕ не поддается обеспечению коммутативности.
 
-For example, consider a system that implements a simple accounting system with the `debit` and `credit` operations in two different ways:
+Для примера, возьмем систему которая реализует простой механизм оплаты с операциями `дебит` и `кредит` двумя способами:
 
-- using a register with `read` and `write` operations, and
-- using a integer data type with native `debit` and `credit` operations
+- используя ячейку данных с операциями `запись` и `чтения`
+- используя целочисленный тип с встроенными операциями `дебит` и `кредит`
 
-The latter implementation knows more about the internals of the data type, and so it can preserve the intent of the operations in spite of the operations being reordered. Debiting or crediting can be applied in any order, and the end result is the same:
+Последняя реализация знает больше о внутреннем устройстве типа данных и может сохранять итог  операций несмотря на то что порядок операций может быть изменен. Дебит или кредит могут быть применены в любом порядке и получится один и тот же результат:
 
-    100 + credit(10) + credit(20) = 130 and
-    100 + credit(20) + credit(10) = 130
+    100 + кредит(10) + кредит(20) = 130 and
+    100 + кредит(20) + кредит(10) = 130
 
- However, writing a fixed value cannot be done in any order: if writes are reordered, the one of the writes will overwrite the other:
+ Однако, запись фиксированных значений не может быть переупорядочена: если запись будет переупорядочена то тогда она перепишет другую:
 
-    100 + write(110) + write(130) = 130 but
-    100 + write(130) + write(110) = 110
+    100 + запись(110) + запись(130) = 130 but
+    100 + запись(130) + запись(110) = 110
 
-Let's take the example from the beginning of this chapter, but use a different operation. In this scenario, clients are sending messages to two nodes, which see the operations in different orders:
+Давайте возьмем пример из начала этой главы но используем другие операции. В этом сценарии, клиенты шлют сообщения двум узлам, которые видят операции в разном порядке:
 
-    [Clients]  --> [A]  1, 2, 3
-    [Clients]  --> [B]  2, 3, 1
+    [Клиенты]  --> [A]  1, 2, 3
+    [Клиенты]  --> [B]  2, 3, 1
 
-Instead of string concatenation, assume that we are looking to find the largest value (e.g. MAX()) for a set of integers. The messages 1, 2 and 3 are:
+Вместо обьеднения строк, Instead of string concatenation, преположим что мы ищем наибольшее значение (то есть max()) для множества целых чисел. Сообщения 1, 2 и 3 таковы:
 
-    1: { operation: max(previous, 3) }
-    2: { operation: max(previous, 5) }
-    3: { operation: max(previous, 7) }
+    1: { операция: max(предыдущий, 3) }
+    2: { операция: max(предыдущий, 5) }
+    3: { операция: max(предыдущий, 7) }
 
-Then, without coordination, both A and B will converge to 7, e.g.:
+То есть, без координации мы придем к одному и тому же значению - 7:
 
     A: max(max(max(0, 3), 5), 7) = 7
     B: max(max(max(0, 5), 7), 3) = 7
 
-In both cases, two replicas see updates in different order, but we are able to merge the results in a way that has the same result in spite of what the order is. The result converges to the same answer in both cases because of the merge procedure (`max`) we used.
+В обоих случаях, обе реплики видели обновления в разном порядке, но объединение результатов привело к получению одного и того же значения независимо от порядка. Результат сошелся в обоих случаях потому что была использована процедура обьединения (`max`).
 
-It is likely not possible to write a merge procedure that works for all data types. In Dynamo, a value is a binary blob, so the best that can be done is to expose it and ask the application to handle each conflict.
 
-However, if we know that the data is of a more specific type, handling these kinds of conflicts becomes possible. CRDT's are data structures designed to provide data types that will always converge, as long as they see the same set of operations (in any order).
+Однако, если мы знаем что данные более специфичного вида, мы можем обрабатывать возможные типы конфликтов. CRDT это структуры данных разработанные для предоставления типов данных которые всегда сходятся к одному значению если они получают одинковый набор изменений (без учета порядка).
 
 ## CRDTs: Convergent replicated data types
 
+It is likely not possible to write a merge procedure that works for all data types. In Dynamo, a value is a binary blob, so the best that can be done is to expose it and ask the application to handle each conflict.
 CRDTs (convergent replicated datatypes) exploit knowledge regarding the commutativity and associativity of specific operations on specific datatypes.
 
 In order for a set of operations to converge on the same value in an environment where replicas only communicate occasionally, the operations need to be order-independent and insensitive to (message) duplication/redelivery. Thus, their operations need to be:
