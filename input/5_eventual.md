@@ -282,23 +282,23 @@ PBS оценивает степень несогласованности исп�
 
 Однако, если мы знаем что данные более специфичного вида, мы можем обрабатывать возможные типы конфликтов. CRDT это структуры данных разработанные для предоставления типов данных которые всегда сходятся к одному значению если они получают одинковый набор изменений (без учета порядка).
 
-## CRDTs: Convergent replicated data types
+## CRDT: Сходящиеся реплицируемые типы данных
 
-CRDTs (convergent replicated datatypes) exploit knowledge regarding the commutativity and associativity of specific operations on specific datatypes.
+CRDTs основывается на знаениях о свойствах коммутативности и ассоциативности специфических операций над специфицическими типами данных.
 
-In order for a set of operations to converge on the same value in an environment where replicas only communicate occasionally, the operations need to be order-independent and insensitive to (message) duplication/redelivery. Thus, their operations need to be:
+Для того чтобы набор операций сходился к определенному значению в ситуации когда реплики коммуницируют время от времени, операции должны быть порядко-независимыми и не чувствительными к дупликации/переотправке сообщений. Таким образом, операции должны быть:
 
-- Associative (`a+(b+c)=(a+b)+c`), so that grouping doesn't matter
-- Commutative (`a+b=b+a`), so that order of application doesn't matter
-- Idempotent (`a+a=a`), so that duplication does not matter
+- Ассоциативными (`a+(b+c)=(a+b)+c`), то есть перегруппировки должны не изменять результата
+- Коммутативными (`a+b=b+a`), то есть порядок применения должен быть неважен
+- Идемпотентными (`a+a=a`), то есть повторное применение не должно влиять на результат
 
-It turns out that these structures are already known in mathematics; they are known as join or meet [semilattices](http://en.wikipedia.org/wiki/Semilattice).
+Это возврашет нас к структурам которые уже известны в математике; они известны как объединяемые или сходящиеся [полурешетки](http://en.wikipedia.org/wiki/Semilattice).
 
-A [lattice](http://en.wikipedia.org/wiki/Lattice_%28order%29) is a partially ordered set with a distinct top (least upper bound) and a distinct bottom (greatest lower bound). A semilattice is like a lattice, but one that only has a distinct top or bottom. A join semilattice is one with a distinct top (least upper bound) and a meet semilattice is one with a distinct bottom (greatest lower bound).
+[Полурешетка](http://en.wikipedia.org/wiki/Lattice_%28order%29) это частично упорядоченный набор с единственной верхней границей и единственной нижней границей. Полурешетка напоминает обычную решетку но с единственной верхней и нижней границей. Обьединяемые полурешетки имеют только верхнюю границу, а сходящиеся только нижнюю.
 
-Any data type that be expressed as a semilattice can be implemented as a data structure which guarantees convergence. For example, calculating the `max()` of a set of values will always return the same result regardless of the order in which the values were received, as long as all values are eventually received, because the `max()` operation is associative, commutative and idempotent.
+Любой тип данных который может быть выражен как полурешетка может быть реализован как структура данных с гарантиями сходимости. Для примера, подсчет  `max()` набора значений всегда будет возврашать одно и то же значение независимо от порядка получаемых значений, всегда пока значения будут поступать, потому что операция `max()` ассоциативна, коммутативна, и идемпотентна.
 
-For example, here are two lattices: one drawn for a set, where the merge operator is `union(items)` and one drawn for a strictly increasing integer counter, where the merge operator is `max(values)`:
+Для примера, здесь две полурешетки: первая отображает набор где оператором обьединения служит функция `union(items)`, во второй мы имеем строго возрастающий счетчик с оперетором объединения `max(values)`:
 
        { a, b, c }              7
       /      |    \            /  \
@@ -306,7 +306,7 @@ For example, here are two lattices: one drawn for a set, where the merge operato
       |  \  /  | /           /   |  \
       {a} {b} {c}            3   5   7
 
-With data types that can be expressed as semilattices, you can have replicas communicate in any pattern and receive the updates in any order, and they will eventually agree on the end result as long as they all see the same information. That is a powerful property that can be guaranteed as long as the prerequisites hold.
+С типами данных которые могут быть выражены полурешетками, мы можем иметь реплики которые коммуницирует любым способом и получают обновления в любом порядке, и они будут в конечном счете сходится к конечному результату, до тех пор пока они получают одну и ту же информацию. Это наиболее сильное свойство которое мы можем гарантировать, до тех пока мы выполняем предпосылки.
 
 However, expressing a data type as a semilattice often requires some level of interpretation. Many data types have operations which are not in fact order-independent. For example, adding items to a set is associative, commutative and idempotent. However, if we also allow items to be removed from a set, then we need some way to resolve conflicting operations, such as `add(A)` and `remove(A)`. What does it mean to remove an element if the local replica never added it? This resolution has to be specified in a manner that is order-independent, and there are several different choices with different tradeoffs.
 
