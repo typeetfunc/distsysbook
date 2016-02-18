@@ -397,86 +397,86 @@ CRDT основаны на осознание того факта что стр�
 
 В чем разница между утверждением и вычислением? Давайте расммотрим запрос "Эта пицца овощная?". Для ответа, мы должны вникнуть в суть: когда приемлимо сделать вывод, что что-либо верно(или не верно)?
 
-There are several acceptable answers, each corresponding to a different set of assumptions regarding the information that we have and the way we ought to act upon it - and we've come to accept different answers in different contexts.
+Существует несколько возможных ответов, каждый вытекает из разного набора допущений относительно информации что у нас есть и того как мы должны действовать в соотвествии с ней - и мы приходим к пониманию что мы можем принять различные ответы в различных контекстах.
 
-In everyday reasoning, we make what is known as the [open-world assumption](http://en.wikipedia.org/wiki/Open_world_assumption): we assume that we do not know everything, and hence cannot make conclusions from a lack of knowledge. That is, any sentence may be true, false or unknown.
+В повседневных рассуждениях, мы делаем то что известно как[Предположение об открытости мира](http://en.wikipedia.org/wiki/Open_world_assumption): мы допускаем что мы не знаем всего, и следовательно не можем делать заключение изза недостатка у нас знаний. То есть любое утверждение может быть истинным, ложным, или может быть неизвестно истинно оно или нет.
 
                                     OWA +             |  OWA +
-                                    Monotonic logic   |  Non-monotonic logic
-    Can derive P(true)      |   Can assert P(true)    |  Cannot assert P(true)
-    Can derive P(false)     |   Can assert P(false)   |  Cannot assert P(true)
-    Cannot derive P(true)   |   Unknown               |  Unknown
-    or P(false)
+                                    Монотонная логика   |  Не монотонная логика
+    можем вывести P(истина)      |  Можем утверждать P(true)    |  Не можем утверждать P(true)
+    можем вывести P(false)     |   Можем утверждать P(false)   |  Не можем утверждать P(true)
+    Не можем вывести P(true)   |   Неизвестно               |  Неизвестно
+    и P(false)
 
-When making the open world assumption, we can only safely assert something we can deduce from what is known. Our information about the world is assumed to be incomplete.
+Когда делается предположение об открытости мира, мы можем безопастно утверждать только то что мы можем вывести из известной нам информации. Наши знания о мире считаются неполными.
 
-Let's first look at the case where we know our reasoning is monotonic. In this case, any (potentially incomplete) knowledge that we have cannot be invalidated by learning new knowledge. So if we can infer that a sentence is true based on some deduction, such as "things that contain two tablespoons of tomato paste are vegetables" and "pizza contains two tablespoons of tomato paste", then we can conclude that "pizza is a vegetable". The same goes for if we can deduce that a sentence is false.
+Давайте сначала взглянем на случай когда мы знаем, что наши рассуждения монотонны. В этом случае, любое(потенциально не полное) знание которое у нас есть мы не может сделать недействительным, узнав чтото новое. Так если мы вывели что предложение верно основываясь на некотрой дедукции, такой как "то что содержит, две столовых ложки томатной пасты является овощным" и "пицца содержит две столовых ложки томатной пасты", тогда мы можем заключит что "пицца овощная. То же самое верно и для случая если мы сможем дедуктивно показать что утверждение ложно.
 
-However, if we cannot deduce anything - for example, the set of knowledge we have contains customer information and nothing about pizza or vegetables - then under the open world assumption we have to say that we cannot conclude anything.
+Однако, Если мы не можем применить дедукцию - для примера, набор наших данных содержит информацию о клиентах и ничего о пицце или овощах - тогда при условии предположения открытого мира мы должны заключить что не можем сделать вывод.
 
-With non-monotonic knowledge, anything we know right now can potentially be invalidated. Hence, we cannot safely conclude anything, even if we can deduce true or false from what we currently know.
+С немонотонным знанием, все что мы узнаем может быть признано недействительным в будущем. Следовательно, мы не можем безопастно делать какие либо выводы, даже если мы сделали дедуктивный вывод из текущих знаний.
 
-However, within the database context, and within many computer science applications we prefer to make more definite conclusions. This means assuming what is known as the [closed-world assumption](http://en.wikipedia.org/wiki/Closed_world_assumption): that anything that cannot be shown to be true is false. This means that no explicit declaration of falsehood is needed. In other words, the database of facts that we have is assumed to be complete (minimal), so that anything not in it can be assumed to be false.
+Однако, в контексте баз данных, и в рамках многих приложений информатики мы предпочтем сделать более определенные заключения. Это означает допущение известное как [предположении о закрытом мире](http://en.wikipedia.org/wiki/Closed_world_assumption): что чтолибо не может быть доказано как истинное - ложное. Это означает что нет нужды в явном объявлении ложности. Другими словами, база данных - это факты которые мы будем считать полными(минимальными), следовательно они не могут быть ложными.
 
-For example, under the CWA, if our database does not have an entry for a flight between San Francisco and Helsinki, then we can safely conclude that no such flight exists.
+Для примера, в ПЗМ, если наша база данных не содержит в себе перелетов между Сан-Франциско и Хельсинки, значит мы можем заключить что такого перелета нету.
 
-We need one more thing to be able to make definite assertions: [logical circumscription](http://en.wikipedia.org/wiki/Circumscription_%28logic%29). Circumscription is a formalized rule of conjecture. Domain circumscription conjectures that the known entities are all there are. We need to be able to assume that the known entities are all there are in order to reach a definite conclusion.
+На необходимо больше способов для того чтобы делать определенные утверждения: [логической ограничение](http://en.wikipedia.org/wiki/Circumscription_%28logic%29). Ограничение это формализованное правило гипотезы. Область ограниченная гипотезой предполагает что все известные сущности содержатся в ней. Мы должны допускать что известные сущности содержатся в области гипотезы чтобы достичь определенного вывода.
 
                                     CWA +             |  CWA +
-                                    Circumscription + |  Circumscription +
-                                    Monotonic logic   |  Non-monotonic logic
-    Can derive P(true)      |   Can assert P(true)    |  Can assert P(true)
-    Can derive P(false)     |   Can assert P(false)   |  Can assert P(false)
-    Cannot derive P(true)   |   Can assert P(false)   |  Can assert P(false)
-    or P(false)
+                                    Ограничение + |  Ограничение +
+                                    Монотонная логика   |  Не монотонная логика
+    Можем вывести P(true)      |   Можем утверждать P(true)    |  Можем утверждать P(true)
+    Можем вывести P(false)     |   Можем утверждать P(false)   |  Можем утверждать P(false)
+    Cannot вывести P(true)   |   Можем утверждать P(false)   |  Можем утверждать P(false)
+    или P(false)
 
-In particular, non-monotonic inferences need this assumption. We can only make a confident assertion if we assume that we have complete information, since additional information may otherwise invalidate our assertion.
+В частности, не монотнные выводы нуждаются в этом допущении. Мы можем сделать уверенное устверждение если мы допускаем что мы имеем полную информацию, так как дополнительная информация может сделать недействительными наши утверждения.
 
-What does this mean in practice? First, monotonic logic can reach definite conclusions as soon as it can derive that a sentence is true (or false). Second, nonmonotonic logic requires an additional assumption: that the known entities are all there is.
+Что это хначит на практике? Во первых, монотонная логика может достичь определенного заключения так скоро как станет возможным вывести что утверждение истинно(или ложно). Во вторых не монотнная логика требует дополнительного допущения что все необходимые сущности для вывода у нас уже есть.
 
-So why are two operations that are on the surface equivalent different? Why is adding two numbers monotonic, but calculating an aggregation over two nodes not? Because the aggregation does not only calculate a sum but also asserts that it has seen all of the values. And the only way to guarantee that is to coordinate across nodes and ensure that the node performing the calculation has really seen all of the values within the system.
+Так почему 2 операции который на первый взгляд эквивалентны на самом деле отличаются? Почему сложение двух чисел монотонно а аггрегация данных с двух узлов нет? Потому что аггрегация не только считает сумму но и также утверждает что есть все необходимые значения. И единственный способ гарантировать это - это координировать узлы и обеспечивать чтобы узлы выполняли вычисления только когда им видна вся информация в системе.
 
-Thus, in order to handle nonmonotonicity one needs to either use distributed coordination to ensure that assertions are made only after all the information is known or make assertions with the caveat that the conclusion can be invalidated later on.
+Таким образом, в целях обработки не моннотонности необходимо либо использовать распределенную кординацию для обеспечения того что утверждения сделаны после того как вся информация стала известна либо делать утверждения с оговоркой что в дальнейшем они могут быть отменены.
 
-Handling non-monotonicity is important for reasons of expressiveness. This comes down to being able to express non-monotone things; for example, it is nice to be able to say that the total of some column is X. The system must detect that this kind of computation  requires a global coordination boundary to ensure that we have seen all the entities.
+Обработка не монотонности важна в целях выразительности. Это сводится к возможности выражать не монотонные вещи; для примера, удобно когда вы можете сказать что абсолютное значение колонки - X. Система должна определять что этот тип вычислений требует глобальной координации границ для того чтобы обеспечивать полноту видимых в системе сущностей.
 
-Purely monotone systems are rare. It seems that most applications operate under the closed-world assumption even when they have incomplete data, and we humans are fine with that. When a database tells you that a direct flight between San Francisco and Helsinki does not exist, you will probably treat this as "according to this database, there is no direct flight", but you do not rule out the possibility that that in reality such a flight might still exist.
+Чисто монотонные системы редки. Кажется что большая часть приложений работает в предположении закрытого мира даже когда она имеет неполные данные и мы, люди, свыклись с этим. Когда база данных говорит что прямого рейса из Сан-Франциско до Хельсинки не существует, вы будете предполагать что "в соответсвии с этой базой данных, прямого рейса нет", но вы исключите возможность что такой рейс может существовать.
 
-Really, this issue only becomes interesting when replicas can diverge (e.g. during a partition or due to delays during normal operation). Then there is a need for a more specific consideration: whether the answer is based on just the current node, or the totality of the system.
+В реальности, эта проблема приходит только когда реплики расходятся (во время разделений или изза задержекво время нормальных операций). Толгда необходимо более частное рассмотрение: ответ основан только на инфмормации с реплики или на информации со всей системы.
 
-Further, since nonmonotonicity is caused by making an assertion, it seems plausible that many computations can proceed for a long time and only apply coordination at the point where some result or assertion is passed to a 3rd party system or end user. Certainly it is not necessary for every single read and write operation within a system to enforce a total order, if those reads and writes are simply a part of a long running computation.
+В дальнейшем, поскольку немонотонность это причина того что было сделано утверждение, кажестся правдоподобным, что многие вычисления могут продолжать работать в течении длительного времени и применять координацию только в местах где результат или утверждение попадает пользователю или в стороннюю систему. Конечно не является необходимым обеспечивать абсолютный порядок для всех чтений и записей, если эти операции просто элементы в длинной цепочке вычислений.
 
-## The Bloom language
+## Язык Bloom
 
-The [Bloom language](http://www.bloom-lang.net/) is a language designed to make use of the CALM theorem. It is a Ruby DSL which has its formal basis in a temporal logic programming language called Dedalus.
+[Язык Bloom](http://www.bloom-lang.net/) это язык разработанный чтобы использовать CALM теорему. Это Ruby DSL который имеет формальную основу в темпоральной логике языка программирования названного Dedalus.
 
-In Bloom, each node has a database consisting of collections and lattices. Programs are expressed as sets of unordered statements which interact with collections (sets of facts) and lattices (CRDTs). Statements are order-independent by default, but one can also write non-monotonic functions.
+В Bloom, каждый узел имеет базу данных содержащих коллекцию или решетку. Программы выражаются как наборы неупорядоченных объявлений который взаимодействуют с коллекциями(наборы фактов) и решетками(CRDT). Объявления порядко независмы по умолчанию, но вы также можете писать не монотонные функции.
 
 
-Have a look at the [Bloom website](http://www.bloom-lang.net/) and [tutorials](https://github.com/bloom-lang/bud/tree/master/docs) to learn more about Bloom.
+Посмотрите на [Bloom сайт](http://www.bloom-lang.net/) и [учебник](https://github.com/bloom-lang/bud/tree/master/docs) чтобы узнать больше о  Bloom.
 
 ---
 
-## Further reading
+## Дальнейшее чтение
 
-#### The CALM theorem, confluence analysis and Bloom
+#### CALM теорема, анализ слияний и Bloom
 
-[Joe Hellerstein's talk @RICON 2012](http://vimeo.com/53904989) is a good introduction to the topic, as is [Neil Conway's talk @Basho](http://vimeo.com/45111940). For Bloom in particular, see [Peter Alvaro's talk@Microsoft](http://channel9.msdn.com/Events/Lang-NEXT/Lang-NEXT-2012/Bloom-Disorderly-Programming-for-a-Distributed-World).
+[речь Joe Hellerstein @RICON 2012](http://vimeo.com/53904989) хорошее введение в тему, как есть [речь Neil Conway  @Basho](http://vimeo.com/45111940). Для Bloom в частности, смотрите [речь Peter Alvaro @Microsoft](http://channel9.msdn.com/Events/Lang-NEXT/Lang-NEXT-2012/Bloom-Disorderly-Programming-for-a-Distributed-World).
 
 - [The Declarative Imperative: Experiences and Conjectures in Distributed Logic](http://www.eecs.berkeley.edu/Pubs/TechRpts/2010/EECS-2010-90.pdf) - Hellerstein, 2010
 - [Consistency Analysis in Bloom: a CALM and Collected Approach](http://db.cs.berkeley.edu/papers/cidr11-bloom.pdf) - Alvaro et al., 2011
 - [Logic and Lattices for Distributed Programming](http://db.cs.berkeley.edu/papers/UCB-lattice-tr.pdf) - Conway et al., 2012
 - [Dedalus: Datalog in Time and Space](http://db.cs.berkeley.edu/papers/datalog2011-dedalus.pdf) - Alvaro et al., 2011
 
-#### CRDTs
+#### CRDT
 
-[Marc Shapiro's talk @ Microsoft](http://research.microsoft.com/apps/video/dl.aspx?id=153540) is a good starting point for understanding CRDT's.
+[речь Marc Shapiro @ Microsoft](http://research.microsoft.com/apps/video/dl.aspx?id=153540) хорошая отправная точка для понимания CRDT.
 
 - [CRDTs: Consistency Without Concurrency Control](http://hal.archives-ouvertes.fr/docs/00/39/79/81/PDF/RR-6956.pdf) - Letitia et al., 2009
 - [A comprehensive study of Convergent and Commutative Replicated Data Types](http://hal.inria.fr/docs/00/55/55/88/PDF/techreport.pdf), Shapiro et al., 2011
 - [An Optimized conflict-free Replicated Set](http://arxiv.org/pdf/1210.3368v1.pdf) - Bieniusa et al., 2012
 
-#### Dynamo; PBS; optimistic replication
+#### Dynamo; PBS; оптимистическая репликация
 
 - [Dynamo: Amazon’s Highly Available Key-value Store](http://www.allthingsdistributed.com/files/amazon-dynamo-sosp2007.pdf) - DeCandia et al., 2007
 - [PNUTS: Yahoo!'s Hosted Data Serving Platform](http://scholar.google.com/scholar?q=PNUTS:+Yahoo!'s+Hosted+Data+Serving+Platform) - Cooper et al., 2008
