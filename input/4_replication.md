@@ -1,333 +1,331 @@
-# %chapter_number%. Replication
+# %chapter_number%. Репликация
 
-The replication problem is one of many problems in distributed systems. I've chosen to focus on it over other problems such as leader election, failure detection, mutual exclusion, consensus and global snapshots because it is often the part that people are most interested in. One way in which parallel databases are differentiated is in terms of their replication features, for example. Furthermore, replication provides a context for many subproblems, such as leader election, failure detection, consensus and atomic broadcast.
+Проблема репликации одна из многих проблем в распределенных системах. Мы фокусируемся на этой проблеме среди других, таких как выбор лидера(мастер-реплики), определение отказов, конкуреннтный доступ к ресурсу, консенсус и глобальные снэпшоты(снимки состояния), потому что зачастую эта проблема интересует большинство людей. Например, чтобы иметь возможность различать базы данных по описанию их возможностей в терминах репликации. Кроме того, репликация дает контекст для многих под-проблем таких как выбор лидера, определения отказов, консенсуса и атомарной посылке сообщщений всем узлам сети(броадкастинг).
 
-Replication is a group communication problem. What arrangement and communication pattern gives us the performance and availability characteristics we desire? How can we ensure fault tolerance, durability and non-divergence in the face of network partitions and simultaneous node failure?
+Репликация это группа связанных проблем. Какие механизмы и шаблоны коммуникации предоставят нам такие показатели производительности и доступности которые нам нужны? Как мы можем обеспечить отказоустойчивость, надежность и отсутсвие расхождений сталкиваясь с разделениями сети и одновременными падениями узлов?
 
-Again, there are many ways to approach replication. The approach I'll take here just looks at high level patterns that are possible for a system with replication. Looking at this visually helps keep the discussion focused on the overall pattern rather than the specific messaging involved. My goal here is to explore the design space rather than to explain the specifics of each algorithm.
+Опять таки существует много подходов к репликации. Под подходом здесь понимается просто высокоуровневый шаблон применимый для систем с репликацией. Такой взгляд помогает фокусироватся на общей картине, а не конкретных деталях. Наша цель здесь исследовать простанство возможных архитектур, а не разобратся с спецификой конкретных алгоритмов.
 
-Let's first define what replication looks like. We assume that we have some initial database, and that clients make requests which change the state of the database.
+Для начала дадим определение репликации в общих чертах. Мы предполагаем что мы имеем некотрую базу данных в начальном состоянии, и можем совершать запросы которые изменяют состояние базы данных.
 
 <img src="images/replication-both.png" alt="replication" style="height: 340px;">
 
-The arrangement and communication pattern can then be divided into several stages:
+Тогда механизм и шаблон коммуникации могут быть разделены на несколько стадий:
 
-1. (Request) The client sends a request to a server
-3. (Sync) The synchronous portion of the replication takes place
-4. (Response) A response is returned to the client
-5. (Async) The asynchronous portion of the replication takes place
+1. (Запрос) Клиент посылает запрос на сервер
+3. (Синхронная часть) Происходит синхронная часть алгоритма репликации
+4. (Результат) Клиенту возврашается ответ
+5. (Асинхронная часть) Происходит асинхронная часть репликации
 
-This model is loosely based on [this article](https://www.google.com/search?q=understanding+replication+in+databases+and+distributed+systems). Note that the pattern of messages exchanged in each portion of the task depends on the specific algorithm: I am intentionally trying to get by without discussing the specific algorithm.
+Это стадии выделены по мотивам [этой статьи](https://www.google.com/search?q=understanding+replication+in+databases+and+distributed+systems). Заметим, что модель сообщений которыми обмениваются отдельные части системы в каждой стадии зависит от конкретного алгоритма: попытаемся пока обойтись без обсуждения конкретных алгоритмов.
 
-Given these stages, what kind of communication patterns can we create? And what are the performance and availability implications of the patterns we choose?
+Учитывая эти этапы, какие подходы к коммуникации мы можем создать? И какие неочевидные последствия будут у нашего выбора для производительности и доступности?
 
-## Synchronous replication
+## Синхронная репликация
 
-The first pattern is synchronous replication (also known as active, or eager, or push, or pessimistic replication). Let's draw what that looks like:
+Первый подход это синхронная репликация(также известная как активная, или интенсивная или пуш-репликация, или пессимистическая репликация). Давайте изобразим это:
 
 <img src="images/replication-sync.png" alt="replication" style="height: 340px;">
 
-Here, we can see three distinct stages: first, the client sends the request. Next, what we called the synchronous portion of replication takes place. The term refers to the fact that the client is blocked - waiting for a reply from the system.
+Здесь, мы можем увидеть три различных стадии: первая, клиент отправляет запрос. Следующая, когда выполняется синхронная часть репликации. Во время этой стадии клиент блокируется - ожидая ответ от системы.
 
-During the synchronous phase, the first server contacts the two other servers and waits until it has received replies from all the other servers. Finally, it sends a response to the client informing it of the result (e.g. success or failure).
+Во время синхронной фазы, первый сервер контактирует со вторым и ждет пока он не получит ответы от всех остальных серверов. В конце, он отсылает ответ клиенту информирующий его об успехе или неудачи.
 
-All this seems straightforward. What can we say of this specific arrangement of communication patterns, without discussing the details of the algorithm during the synchronous phase? First, observe that this is a write N - of - N approach: before a response is returned, it has to be seen and acknowledged by every server in the system.
+Это выглядит довольно просто. Что мы можем сказать о специфичных соглашениях о шаблонах коммуникации, не погружаясь в детали конкретного алгоритма синхронной фазы? Во-первых, заметим что запись осуществляется при помощи N - из - N подхода: прежде чем результат будет возврашен, он должен быть доставлен и признан корректным каждым сервером в системе(если серверов N то запись должна быть потверждена N раз).
 
-From a performance perspective, this means that the system will be as fast as the slowest server in it. The system will also be very sensitive to changes in network latency, since it requires every server to reply before proceeding.
+С точки зрения производительности это означает, что система будет быстрой настолько же как и самая медленная машина в кластере. Система также будет крайне чувствительна к изменениям сетевых задержек, так как необходимо дождатся пока ответа каждого сервера прежде чем ответить клиенту.
 
-Given the N-of-N approach, the system cannot tolerate the loss of any servers. When a server is lost, the system can no longer write to all the nodes, and so it cannot proceed. It might be able to provide read-only access to the data, but modifications are not allowed after a node has failed in this design.
+Использующая данный подход(N-из-N) система не может быть устойчива к выходу из строя какого либо сервера. При падении сервера, система на долгое время теряет возможность продолжать запись на всех узлах и соотвественно не может продолжать обрабатывать запросы клиента. Она все еще может предоставлять доступ к данным на чтение, но их модификация становится не возможно при падении узла при такой архитектуре.
 
-This arrangement can provide very strong durability guarantees: the client can be certain that all N servers have received, stored and acknowledged the request when the response is returned. In order to lose an accepted update, all N copies would need to be lost, which is about as good a guarantee as you can make.
+Такое механизм работы позволяет предоставлять строгие гарантии надежности: клиент может быть уверен что все N серверов получили, сохранили и согласились с запросом на модификацию, когда клиент получил ответ. Чтобы потерять принятое обновление необходимо чтобы его потеряли все N серверов, что является настолько хорошей гарантией насколько мы можем дать.
 
-## Asynchronous replication
+## Асинхронная репликация
 
-Let's contrast this with the second pattern - asynchronous replication (a.k.a. passive replication, or pull replication, or lazy replication). As you may have guessed, this is the opposite of synchronous replication:
+Давайте сравним данные подход с другим паттерном - асинхронной репликацией (a.k.a. пассивная репликация, или pull-репликация, или ленивая репликация). Как вы можете догадатся, этот подход противоположен синхронной репликации:
 
 <img src="images/replication-async.png" alt="replication" style="height: 340px;">
 
-Here, the master (/leader / coordinator) immediately sends back a response to the client. It might at best store the update locally, but it will not do any significant work synchronously and the client is not forced to wait for more rounds of communication to occur between the servers.
+Здесь, мастер (/ лидер / координатор) немедленно возврашает ответ клиенту. Максимум что он делает это сохраняет изменения локально, но он не будет делать какую либо синхронную отсылку этих изменений другим серверам и не будет заставлять ждать клиента пока произойдет коммуникация с другими серверами.
 
-At some later stage, the asynchronous portion of the replication task takes place. Here, the master contacts the other servers using some communication pattern, and the other servers update their copies of the data. The specifics depend on the algorithm in use.
+После этого, наступает стадия в который выполняется асинхронная часть механизма репликации. Во время нее, мастер сообщает другим серверам обновить локальную версию данных. Детали этого зависят от алгоритма используемого для репликации.
 
-What can we say of this specific arrangement without getting into the details of the algorithm? Well, this is a write 1 - of - N approach: a response is returned immediately and update propagation occurs sometime later.
+Что мы можем сказать о специфики такого подхода без углубления в детали конкретных алгоритмов? Что ж, это запись 1 - из - N: результат будет возврашен немедленно, а обновления будут распространены немного позже.
 
-From a performance perspective, this means that the system is fast: the client does not need to spend any additional time waiting for the internals of the system to do their work. The system is also more tolerant of network latency, since fluctuations in internal latency do not cause additional waiting on the client side.
+С точки зрения производительности это означает что система будет быстрой: клиенту нет нужды тратить время ожидая пока система совершит всю внутреннюю работу. Такая система также более невосприимчива к сетевым задержкам, так как изменения задержек внутри системы не вызывают увеличение времени ожидания клиента.
 
-This arrangement can only provide weak, or probabilistic durability guarantees. If nothing goes wrong, the data is eventually replicated to all N machines. However, if the only server containing the data is lost before this can take place, the data is permanently lost.
+Такой механизм может предоставлять только слабые или вероятностные гарантии надежности. Если не случится ничего неправильного, тогда данные в конечном итоге будут реплицированны на все N машин. Однако, если только сервер содержаший данные потеряет их прежде чем это случится тогда мы можем потерять эти данные навсегда.
 
-Given the 1-of-N approach, the system can remain available as long as at least one node is up (at least in theory, though in practice the load will probably be too high). A purely lazy approach like this provides no durability or consistency guarantees; you may be allowed to write to the system, but there are no guarantees that you can read back what you wrote if any faults occur.
+Данный подход, позволяет системе оставатся доступной до тех пор пока остается хотя бы один узел(это только в теории - на практике нагрузка на него будет слишком высока). Полностью "ленивый" подход не предоставляет гарантий надежности и согласованности; вы можете писать данные в систему, но нет никаких гарантий что вы сможете прочитать те данные что вы записали в случае возникновения каких либо ошибок.
 
-Finally, it's worth noting that passive replication cannot ensure that all nodes in the system always contain the same state. If you accept writes at multiple locations and do not require that those nodes synchronously agree, then you will run the risk of divergence: reads may return different results from different locations (particularly after nodes fail and recover), and global constraints (which require communicating with everyone) cannot be enforced.
+В конце концов, следует заметить что пассивная репликация не может обеспечивать одинаковое состояние на всех узлах. Если вы проводите запись в нескольких узлах и не требуете чтобы все узлы были синхронно согласны на запись, вы рискуете получить расхождение данных: чтение может возврашать разные данные из разных источников(в частности для узлов после востановления), и глобальные ограничения(которые требуют коммуникации всех узлов) не могут использоватся при таком подходе.
 
-I haven't really mentioned the communication patterns during a read (rather than a write), because the pattern of reads really follows from the pattern of writes: during a read, you want to contact as few nodes as possible. We'll discuss this a bit more in the context of quorums.
+Детали коммуникации при чтении данных не упомянуты специально, потому что то как вы читаете данные напрямую зависит от способа записи: во время чтения вы хотите контактировать с несколькими узлами - если это представляется возможным. Немного более подробно об этом будет сказано в контексте кворумов.
 
-We've only discussed two basic arrangements and none of the specific algorithms. Yet we've been able to figure out quite a bit of about the possible communication patterns as well as their performance, durability guarantees and availability characteristics.
+Мы только обсудили два базовых подхода и не вдавались в детали специфики  конкретных алгоритмов. Еще мы смогли выяснить совсем немного о возможных моделях коммуникации а также их производительности, гарантиях надежности и доступности.
 
-## An overview of major replication approaches
+## Обзор большинства способов репликации
 
-Having discussed the two basic replication approaches: synchronous and asynchronous replication, let's have a look at the major replication algorithms.
+У нас была дискуссия о двух главных способах: синхронной и асинхронной репликации, а теперь давайте взглянем на большинство алгоритмов репликации.
 
-There are many, many different ways to categorize replication techniques. The second distinction (after sync vs. async) I'd like to introduce is between:
+Существует очень много различных способов разбить на категории техники применяемые для репликации. Второе разделение(после синхронной и асинхронной) которое мы обсудим, это разделение между:
 
-- Replication methods that prevent divergence (single copy systems) and
-- Replication methods that risk divergence (multi-master systems)
+- Методами репликации которые предотвращают расхождение ("single copy" системы) и
+- Методами репликации которые могут приводит к расхождениям (мульти-мастер системы)
 
-The first group of methods has the property that they "behave like a single system". In particular, when partial failures occur, the system ensures that only a single copy of the system is active. Furthermore, the system ensures that the replicas are always in agreement. This is known as the consensus problem.
+Первая группа методов удовлетворяет условиям "поведения аналогичного для не распределенной системы".  В частности, когда отказываает часть системы, гарантируется что только одная копия системы остается активной. Кроме того, система гарантирует что реплики всегда находятся в согласии. Это известно как проблема консенсуса.
 
-Several processes (or computers) achieve consensus if they all agree on some value. More formally:
+Несколько процессов(или компьютеров) достигают консенсуса если все они согласны насчет некотрого значения. Более формально:
 
-1. Agreement: Every correct process must agree on the same value.
-2. Integrity: Every correct process decides at most one value, and if it decides some value, then it must have been proposed by some process.
-3. Termination: All processes eventually reach a decision.
-4. Validity: If all correct processes propose the same value V, then all correct processes decide V.
+1. Соглашение: Каждый корректный процесс должен быть согласен с одним и тем же значением что и другие.
+2. Целостность: Каждый корректный процесс может выбрать не более одного значения, и если он выбирает некотрое значение то оно должно быть предложено некотрым процессом.
+3. Завершение: Все процессы должны в конечном счете принять решение.
+4. Обоснованность: Если все корректные процессы предлагают значение V, тогда все корректные процессы должны принять значение V.
 
-Mutual exclusion, leader election, multicast and atomic broadcast are all instances of the more general problem of consensus. Replicated systems that maintain single copy consistency need to solve the consensus problem in some way.
+Конкурентный доступ к данным, выбор лидера, атомарная отсылка сообщей всем(броадкаст) или нескольким(мультикаст) узлам - все это частный случаи более общей проблемы консенсуса. Системы репликации которые поддерживат консистетность уровня "одна активная копия"("single-copy")  нуждаются в решении проблемы консенсуса каким либо способом.
 
-The replication algorithms that maintain single-copy consistency include:
+Алгоритмы репликации которые поддерживают single-copy согласованность включают в себя следующие категории:
 
-- 1n messages (asynchronous primary/backup)
-- 2n messages (synchronous primary/backup)
-- 4n messages (2-phase commit, Multi-Paxos)
-- 6n messages (3-phase commit, Paxos with repeated leader election)
+- 1n сообщений (асинхронный primary/backup)
+- 2n сообщейний (синхронный primary/backup)
+- 4n сообщений (2-ухфазный коммит, Мульти-Паксос)
+- 6n сообщений (3-хфазный коммит, Паксос с повторящимся выбором лидера)
 
-These algorithms vary in their fault tolerance (e.g. the types of faults they can tolerate). I've classified these simply by the number of messages exchanged during an execution of the algorithm, because I think it is interesting to try to find an answer to the question "what are we buying with the added message exchanges?"
+Эти алгоритмы отличаются по устойчивости к отказам (то есть типам отказов которые они могут обрабатывать). Классификация выше делит их просто по числу сообщений которые им надо отправить во время выполнения алгоритма, потому что, мне кажется интересно найти ответ на вопрос "Что мы получаем с увеличением обмена сообщениями?"
 
-The diagram below, adapted from Ryan Barret at [Google](http://www.google.com/events/io/2009/sessions/TransactionsAcrossDatacenters.html), describes some of the aspects of the different options:
+Диаграмма ниже адаптированная из работы Ryan Barret из [Google](http://www.google.com/events/io/2009/sessions/TransactionsAcrossDatacenters.html), описывает некотрые аспекты возможных вариантов опций:
 
-![Comparison of replication methods, from http://www.google.com/events/io/2009/sessions/TransactionsAcrossDatacenters.html](images/google-transact09.png)
+![Сравнение методов репликации из http://www.google.com/events/io/2009/sessions/TransactionsAcrossDatacenters.html](images/google-transact09.png)
 
-The consistency, latency, throughput, data loss and failover characteristics in the diagram above can really be traced back to the two different replication methods: synchronous replication (e.g. waiting before responding) and asynchronous replication. When you wait, you get worse performance but stronger guarantees. The throughput difference between 2PC and quorum systems will become apparent when we discuss partition (and latency) tolerance.
+Характеристики согласованности, задержек, пропускной способности, возможности потери данных и способности к востановлению на диаграмме выше могут быть вытекают из сути двух главных методов репликации: синхронная репликация(во время который мы ждем прежде ответить) и асинхронной. Когда мы ждем, мы получаем хуже производительность но выше гарантии надежности. Разница в пропускной способности между 2PC  системах и основанных на кворуме системах станет очевидной когда мы будем обсуждать устойчивость к разделению(и задержкам).
 
 
-In that diagram, algorithms enforcing weak (/eventual) consistency are lumped up into one category ("gossip"). However, I will discuss replication methods for weak consistency - gossip and (partial) quorum systems - in more detail. The "transactions" row really refers more to global predicate evaluation, which is not supported in systems with weak consistency (though local predicate evaluation can be supported).
+На диаграмме, алгоритмы обеспечивающие слабую согласованность("согласованность в конечном итоге") объединены в одну категорию ("gossip"). Однако, мы будем обсуждать методы репликации с слабой согласованностью - gossip и системы с частичным кворумом - более детально. Строчка с заголовков "transactions" на самом деле ссылается больше на вычисление ограничений в рамках всей системы,  которые не поддерживаются в системах с слабой согласованность (хотя локальные ограничения и условия поддерживаются).
 
-It is worth noting that systems enforcing weak consistency requirements have fewer generic algorithms, and more techniques that can be selectively applied. Since systems that do not enforce single-copy consistency are free to act like distributed systems consisting of multiple nodes, there are fewer obvious objectives to fix and the focus is more on giving people a way to reason about the characteristics of the system that they have.
+Следует отметить что системы предоставляющие гарантии только слабой согласованности требуют менее общих(более специальных) алгоритмов, и многие техники применимы к ним только частично. Системы не связывающие себя обязательством согласованности с единственной активной копией свободны от ограничения, что они должны работать "как на одной машине", их задачи менее очевидны, что в свою очередь позволяет людям сфокусироватся на том чтобы рассуждать о характеристиках которые имеет такая система.
 
-For example:
+Для примера:
 
-- Client-centric consistency models attempt to provide more intelligible consistency guarantees while allowing for divergence.
-- CRDTs (convergent and commutative replicated datatypes) exploit semilattice properties (associativity, commutativity, idempotency) of certain state and operation-based data types.
-- Confluence analysis (as in the Bloom language) uses information regarding the monotonicity of computations to maximally exploit disorder.
-- PBS (probabilistically bounded staleness) uses simulation and information collected from a real world system to characterize the expected behavior of partial quorum systems.
+- Клиент-ориентированная согласованность пытается предоставлять более понятные гарантии согласованности при возможных расхождениях данных.
+- CRDTs (сходящиеся и коммутативные реплицируемые типы данных) используют  свойства полукольца (ассоциативность, коммутативность, имподентность) опредленных для структур данных основанных на состоянии и операциях.
+- Анализ слияний(Confluence analysis) (как в Bloom language) использует информацию о монотонности вычислений максимально используя отсуствия порядка.
+- PBS (вероятностные ограничения устаревания - probabilistically bounded staleness) использует симуляцию  и информацию с реальной системы чтобы характеризовать ожидаемое поведение системы с частичным кворумом.
 
-I'll talk about all of these a bit  further on, first; let's look at the replication algorithms that maintain single-copy consistency.
+Мы будем обсуждать все эти техники немного позже; для начала давайте посмотрим на алгоритмы репликации которые поддерживают согласованность во всей системе на уровне одной активной копии не допускающей расхождений(single-copy).
 
-## Primary/backup replication
+## Primary/backup репликация
 
-Primary/backup replication (also known as primary copy replication master-slave replication or log shipping) is perhaps the most commonly used replication method, and the most basic algorithm. All updated are performed on the primary, and a log of operations (or alternatively, changes) is shipped across the network to the backup replicas. There are two variants:
+Primary/backup репликация (также известная как репликация методом копирования мастера, мастер-слейв репликация и рпеликация отправкой логов) возможно наиболее общий из алгоритмов репликации, и самый простой. Все изменения выполненые на главной реплике и лог всех операций (или всех изменений) отправляется по сети остальным репликам. Как мы помним, возможны два варианта:
 
-- asynchronous primary/backup replication and
-- synchronous primary/backup replication
+- изменения отсылаются асинхронно и
+- изменения отсылаются синхронно
 
-The synchronous version requires two messages ("update" + "acknowledge receipt") while the asynchronous version could run with just one ("update").
+Синхронный вариант требует два сообщения ("обновление" + "подтверждение получения") в то время как асинхронный вариант только лишь "обновления".
 
-P/B is very common. For example, by default MySQL replication uses the asynchronous variant. MongoDB also uses P/B (with some additional procedures for failover). All operations are performed on one master server, which serializes them to a local log, which is then replicated asynchronously to the backup servers.
+P/B очень общий алгоритм. Для примера, по умолчанию MySQL репликация использует его асинхронный вариант. MongoDB также использует P/B (с некотрыми дополнениями для востанновления в случе отказа мастера). Все операции выполняются на одном мастер сервере, которые затем упорядочиваются в локальный лог и затем асинхронно воспроизводятся на резервной реплике.
 
-As we discussed earlier in the context of asynchronous replication, any asynchronous replication algorithm can only provide weak durability guarantees. In MySQL replication this manifests as replication lag: the asynchronous backups are always at least one operation behind the primary. If the primary fails, then the updates that have not yet been sent to the backups are lost.
+Как мы обсуждали раньше в контексте асинхронной репликации, любая подобный алгоритм может предоставить только слабые гарантии надежности. В MySQL репликации это известно как лаг репликации: асинхронное копирование всегда отстает по крайне мере на одну операцию от мастера. Если мастер упадет, когда обновления еще не будут доставлены они будут потеряны.
 
-The synchronous variant of primary/backup replication ensures that writes have been stored on other nodes before returning back to the client - at the cost of waiting for responses from other replicas. However, it is worth noting that even this variant can only offer weak guarantees. Consider the following simple failure scenario:
+Синхронный вариант primary/backup репликации обеспечивает сохранение записи на реплике прежде чем результат будет возвращен клиенту - ценой этому будет ожидание ответа всех реплик. Однако, стоит заметить что даже такой вариант может быть предоставлять только слабые гарантии. Рассмотрим следующий сценарий отказа:
 
-- the primary receives a write and sends it to the backup
-- the backup persists and ACKs the write
-- and then primary fails before sending ACK to the client
+- мастер принимает запись и отправляет ее на реплики
+- реплики сохраняют ее и сообщают о успешной записи
+- и в этот момент мастер падает прежде чем отправляет ответ клиенту
 
-The client now assumes that the commit failed, but the backup committed it; if the backup is promoted to primary, it will be incorrect. Manual cleanup may be needed to reconcile the failed primary or divergent backups.
+Клиент допускает что запись была не успешна, но реплики совершили запись; если реплика будет выдвинута на роль мастера, эта запись будет некорректна с точки зрения клиента. Может понадобится ручная очистка для синхронизации расходящихся мастера и реплики.
 
-I am simplifying here of course. While all primary/backup replication algorithms follow the same general messaging pattern, they differ in their handling of failover, replicas being offline for extended periods and so on. However, it is not possible to be resilient to inopportune failures of the primary in this scheme.
+Данный сценарий конечно намеренно упрощен. Все алгоритмы мастер-слейв репликации следуют одним паттернам коммуникации но они отличаются в способности обработке востанновления после отказа, возможности реплики находится в оффлайне длительное время и так далее. Однако, не возможно быть полностью устойчивым к неудачным падениям мастера в такой схеме.
 
-What is key in the log-shipping / primary/backup based schemes is that they can only offer a best-effort guarantee (e.g. they are susceptible to lost updates or incorrect updates if nodes fail at inopportune times). Furthermore, P/B schemes are susceptible to split-brain, where the failover to a backup kicks in due to a temporary network issue and causes both the primary and backup to be active at the same time.
+Ключевым в механизмах основанных на мастер-слейв алгоритмах является то что они предлагают гарантии настолько хорошие насколько это возможно(например они могут терять обновления или наоборот получать некорректные апдейты если узел падает в неподходящий момент). Более того, мастер-слейв конфигурации уязвимы к так называемому "split-brain", когда востановление путем выдвижение в качестве мастер сервера одной из реплик после проблем с сетью приводит к тому что некотрое время оказывается активным оба мастера(новый созданный из реплики и старый вернувшийся в строй).
 
-To prevent inopportune failures from causing consistency guarantees to be violated; we need to add another round of messaging, which gets us the two phase commit protocol (2PC).
+Для предотвращения сбоя в неподходящий момент мы должны добавить еще один раунд обмена сообщениями, прийдя тем самым к протоколу двух-фазного коммита.
 
-## Two phase commit (2PC)
+## Двух-фазный коммит (2PC)
 
-[Two phase commit](http://en.wikipedia.org/wiki/Two-phase_commit_protocol) (2PC) is a protocol used in many classic relational databases. For example, MySQL Cluster (not to be confused with the regular MySQL) provides synchronous replication using 2PC. The diagram below illustrates the message flow:
+[Двух-фазный коммит](http://en.wikipedia.org/wiki/Two-phase_commit_protocol) (2PC) это протокол используемый во многих классических реляционных базах данных. Для примера, MySQL Cluster (не путать с обычным MySQL) предоставляет синхронную репликацию используя 2PC. Диаграмма ниже иллюстрирует поток сообщений:
 
-    [ Coordinator ] -> OK to commit?     [ Peers ]
-                    <- Yes / No
+    [ Координатор ] -> Готовы к совершению операции(commit)?     [ Узлы ]
+                    <- Да / Нет
 
-    [ Coordinator ] -> Commit / Rollback [ Peers ]
-                    <- ACK
+    [ Координатор ] -> Завершить / откатить [ Узлы ]
+                    <- Результат операции
 
-In the first phase (voting), the coordinator sends the update to all the participants. Each participant processes the update and votes whether to commit or abort. When voting to commit, the participants store the update onto a temporary area (the write-ahead log). Until the second phase completes, the update is considered temporary.
+В первой фазе(голосования),  координатор отсылает обновления всем участникам. Каждый участвующий процесс исполняет обновления и голосует либо за завершение операции либо за откат. Когда голосуют за завершение, участники сохраняют обновление в некотрой временной зоне (write-ahead лог). Пока выполняется вторая фаза обновления считаются временными.
 
-In the second phase (decision), the coordinator decides the outcome and informs every participant about it. If all participants voted to commit, then the update is taken from the temporary area and made permanent.
+Во второй фазе(решения), координатор подводит итог на основе данных с реплик и сообщает каждому участнику. Если все участники голосовали за совершение операции, тогда обновление перемещается из временной зоны в место постоянного хранения.
 
-Having a second phase in place before the commit is considered permanent is useful, because it allows the system to roll back an update when a node fails. In contrast, in primary/backup ("1PC"), there is no step for rolling back an operation that has failed on some nodes and succeeded on others, and hence the replicas could diverge.
+Наличие второй фазы перед сохранением в постоянное хранилище крайне полезно, так как оно позволяет системе откатится в случае если узел упадет.  В отличии от 2PC в мастер-слейв схеме, которая не содержит шага для отмены операции в случае если операция была успешно выполнена на одних узлах, а на других случился отказ - реплики будут подвержены расхождениям.
 
-2PC is prone to blocking, since a single node failure (participant or coordinator) blocks progress until the node has recovered. Recovery is often possible thanks to the second phase, during which other nodes are informed about the system state. Note that 2PC assumes that the data in stable storage at each node is never lost and that no node crashes forever. Data loss is still possible if the data in the stable storage is corrupted in a crash.
+2PC склонен к блокировкам, пока один узел недоступен (участник или координатор) все операции блокируются пока узел не востановится. Востановление зачастую возможно благодаря второй фазе, во время которой другие узлы информируют о состоянии системы. Заметим, что 2PC предпологает, что данные в поостоянном хранилище никогда не будут потеряны и узлы никогда не упадут навсегда. Потери данных остаются возможными если данные в постоянном хранилище будут повреждены при падении.
 
-The details of the recovery procedures during node failures are quite complicated so I won't get into the specifics. The major tasks are ensuring that writes to disk are durable (e.g. flushed to disk rather than cached) and making sure that the right recovery decisions are made (e.g. learning the outcome of the round and then redoing or undoing an update locally).
+Детали процедуры востановления после сбоев узлов довольно сложны и мы не будем вдаватся в специфику. Главные задачи - это обеспечить надежную запись на диск(например записывать все на диск не кэшируя) и убедиться, что были приняты правильные решения для востановления (например изучив исход раунда востановить или отменить локальные изменения).
 
-As we learned in the chapter regarding CAP, 2PC is a CA - it is not partition tolerant. The failure model that 2PC addresses does not include network partitions; the prescribed way to recover from a node failure is to wait until the network partition heals. There is no safe way to promote a new coordinator if one fails; rather a manual intervention is required. 2PC is also fairly latency-sensitive, since it is a write N-of-N approach in which writes cannot proceed until the slowest node acknowledges them.
+Как мы узнали в главе посвященной CAP теореме, 2PC это CA - он не устойчив к разделению. Модель отказов 2PC не включает в себя разделения сети; предписанный им способ востановится после отказа узла это подождать пока не востановится сеть. То есть несуществует безопасного способа выдвинуть нового координатора если старый упал; необходимо ручное воздействие. 2PC также довольно чувствителен к задержкам, так как это N-из-N подход к записи -   запись не может продолжатся пока самый медленный узел не подтвердит ее.
 
-2PC strikes a decent balance between performance and fault tolerance, which is why it has been popular in relational databases. However, newer systems often use a partition tolerant consensus algorithm, since such an algorithm can provide automatic recovery from temporary network partitions as well as more graceful handling of increased between-node latency.
+2PC это достойный компромисс между производительностью и отказоустойчивостью, поэтому он так популярен в классических реляционных базах данных. Однако, более новые системы зачастую используют алгоритмы консенсуса устойчивые к разделению, поскольку такой алгоритм может обсепечить востановление при временных разделениях сети, а также меньшую чувствительность к задержкам между узлами.
 
-Let's look at partition tolerant consensus algorithms next.
+Давайте взглянем на алгоритмы консенсуса устойчивые к разделению.
 
-## Partition tolerant consensus algorithms
+## Алгоритмы консенсуса устойчивые к разделению
 
-Partition tolerant consensus algorithms are as far as we're going to go in terms of fault-tolerant algorithms that maintain single-copy consistency. There is a further class of fault tolerant algorithms: algorithms that tolerate [arbitrary (Byzantine) faults](http://en.wikipedia.org/wiki/Byzantine_fault_tolerance); these include nodes that fail by acting maliciously. Such algorithms are rarely used in commercial systems, because they are more expensive to run and more complicated to implement - and hence I will leave them out.
+Алгоритмы консенсуса устойчивые к разделению ушли насколько это возможно далеко от устойчивых к отказам алгоритмов представляющих консистентность без расхождений. Следующий класс алгоритмов устойчивым к отказам: алгоритмы устойчивые к [произвольным (Византийским) отказам](http://en.wikipedia.org/wiki/Byzantine_fault_tolerance); они включают в себя отказы проявляющиеся в некорректном поведении узлов. Такие алгоритмы редко используются в коммерческих системах, потому что они более дорогие и сложные для реализации и запуске - и следовательно мы не будем обсуждать их.
 
-When it comes to partition tolerant consensus algorithms, the most well-known algorithm is the Paxos algorithm. It is, however, notoriously difficult to implement and explain, so I will focus on Raft, a recent (~early 2013) algorithm designed to be easier to teach and implement. Let's first take a look at network partitions and the general characteristics of partition tolerant consensus algorithms.
+Когда обсуждение доходит до алгоритмов консенсуса устойчивых к разделениям, многие вспоминают широко известный алгоритм Paxos. Однако общеизвестно, что он довольно сложен для реализации и обьяснения, так что мы сфокусируемся на Raft, не так давно(начало 2013) созданым(с целью быть более простым в понимании и реализации) алгоритмом . Давайте сперва взглянем на сетевое разделение и главные характеристики алгоритмов консенсуса устойчивых к разделениям.
 
-### What is a network partition?
+### Что такое сетевое разделение?
 
-A network partition is the failure of a network link to one or several nodes. The nodes themselves continue to stay active, and they may even be able to receive requests from clients on their side of the network partition. As we learned earlier - during the discussion of the CAP theorem - network partitions do occur and not all systems handle them gracefully.
+Сетевое разделение это исчезновение связи по сети к одному или нескольким узлами. Узлы при этом остаются активны и даже могут обслуживать запросы клиентов на своей стороне сетевого раздела. Как мы узнали раньше - во время дискуссии о CAP теореме - сетевые разделения происходят и не все системы могут полноценно обрабатывать их.
 
-Network partitions are tricky because during a network partition, it is not possible to distinguish between a failed remote node and the node being unreachable. If a network partition occurs but no nodes fail, then the system is divided into two partitions which are simultaneously active. The two diagrams below illustrate how a network partition can look similar to a node failure.
+Разделения сети коварны, потому что во время сетевого разделения не возможно различать упавший узел от узла, который отделен от остальных упашей сетью. Если происходит сетевое разделение, и при этом все узлы активны, тогда система разделяется на две партиции которые одновременно активны. 2 диаграммы ниже иллюстрируют как сетевое разделение может быть похожим на падение узла.
 
-A system of 2 nodes, with a failure vs. a network partition:
+Система с 2 узлами, при падении узла и при разделении сети:
 
 <img src="images/system-of-2.png" alt="replication" style="max-height: 100px;">
 
-A system of 3 nodes, with a failure vs. a network partition:
+Система с 3 узлами, при падении узла и при разделении сети:
 
 <img src="images/system-of-3.png" alt="replication"  style="max-height: 130px;">
 
-A system that enforces single-copy consistency must have some method to break symmetry: otherwise, it will split into two separate systems, which can diverge from each other and can no longer maintain the illusion of a single copy.
+Система обеспечивающая согласованность без расхождений должна иметь способ отличать такие ситуации: иначе она будет разбита на две одинаковые системы которые могут расходится и система перестанет поддерживать иллюзию работы в единственном экземпляре.
 
-Network partition tolerance for systems that enforce single-copy consistency requires that during a network partition, only one partition of the system remains active since during a network partition it is not possible to prevent divergence (e.g. CAP theorem).
+Устойчивость к сетевым разделениям для систем обеспечивающих согласованность без расхождений, требует чтобы во время сетевого разделения только одна часть системы была активной, так как в ином случае не возможно предотвратить расхождения изменений(вспоминаем CAP теорему).
 
-### Majority decisions
+### Решения основанные на большинстве голосов
 
-This is why partition tolerant consensus algorithms rely on a majority vote. Requiring a majority of nodes - rather than all of the nodes (as in 2PC) - to agree on updates allows a minority of the nodes to be down, or slow, or unreachable due to a network partition. As long as `(N/2 + 1)-of-N` nodes are up and accessible, the system can continue to operate.
+Поэтому алгоритмы консенсуса устойчивые к разделению основаны на голосе большинства. Требование большинства узлов - в отличии от всех узлов (как в 2PC) - для согласия на обновление позволяет меньшинству узлов быть недоступными изза разделения сети или очень медленными. Пока `(N/2 + 1)-из-N` узлов работоспобны и доступны система может продолжать работу.
 
-Partition tolerant consensus algorithms use an odd number of nodes (e.g. 3, 5 or 7). With just two nodes, it is not possible to have a clear majority after a failure. For example, if the number of nodes is three, then the system is resilient to one node failure; with five nodes the system is resilient to two node failures.
+Алгоритмы консенсуса устойчивые к разделению используют нечетное числов узлов (например, 3, 5 или 7). Используя только 2 узла невозможно определить абсолютное большинство. Для примера, если у нас 3 узла, тогда система устойчива к отказу одного узла, если узлов 5 - тогда уже к падению двух.
 
-When a network partition occurs, the partitions behave asymmetrically. One partition will contain the majority of the nodes. Minority partitions will stop processing operations to prevent divergence during a network partition, but the majority partition can remain active. This ensures that only a single copy of the system state remains active.
+Когда происходит разделение сети, партиции ведут себя асимметрично. Одна будет содержать большинство узлов. Меньшинство прекратит обрабатывать операции чтобы предотвратить расхождения пока сеть не востанновится, но партиция с большинством участников останется активной. Это обеспечивает единственную копию системы которая остается активной.
 
-Majorities are also useful because they can tolerate disagreement: if there is a perturbation or failure, the nodes may vote differently. However, since there can be only one majority decision, a temporary disagreement can at most block the protocol from proceeding (giving up liveness) but it cannot violate the single-copy consistency criterion (safety property).
+Руководство принципами "мажоритарности" также полезно потому, что в таком случае появляется устойчивость к несогласию узлов: если есть искажения или отказы, тогда узлы могут проголосовать по-разному. Однако, поскольку может быть только одно решение принятое большинством, временное несогласие может заблокировать принятие окончательного решения(отказ от свойства живучести) но не может нарушить критерий целостности "единой копии" (свойство корректности).
 
-### Roles
+### Роли
 
-There are two ways one might structure a system: all nodes may have the same responsibilities, or nodes may have separate, distinct roles.
+Существует два способа выстраивать систему: либо все узлы имеют одни и теже обязанности, либо разные узлы могут иметь разные роли.
 
-Consensus algorithms for replication generally opt for having distinct roles for each node. Having a single fixed leader or master server is an optimization that makes the system more efficient, since we know that all updates must pass through that server. Nodes that are not the leader just need to forward their requests to the leader.
+Алгоритмы консенсуса для репликации как правило разделяют роли между узлами. Наличие одного зафиксированного лидера или мастер-сервера это оптимизация которая делает системы более эффективной, так как мы знаем, что все обновления должны пройти через этот сервер. Узлы которые не являются лидером должны передавать запросы, пришедшие к ним, лидеру.
 
-Note that having distinct roles does not preclude the system from recovering from the failure of the leader (or any other role). Just because roles are fixed during normal operation doesn't mean that one cannot recover from failure by reassigning the roles after a failure (e.g. via a leader election phase). Nodes can reuse the result of a leader election until node failures and/or network partitions occur.
+Заметим что наличие различных ролей не исключает востановления системы после отказа лидера(или другого узла). То что роли закреплены за узлами не означает, что при востановлении после сбоя не может произойти переназначение ролей(например при помощи фазы выдвижения лидера). Узлы могут использовать один и тот же результат выбора лидера пока не произойдет новый сбой узлов или сетевой раздел.
 
-Both Paxos and Raft make use of distinct node roles. In particular, they have a leader node ("proposer" in Paxos) that is responsible for coordination during normal operation. During normal operation, the rest of the nodes are followers ("acceptors" or "voters" in Paxos).
+И Paxos и Raft используют разные роли для разных узлов. Обычно, они определяют лидера(предлагающий узел ("proposer") в Paxos) который отвечает за координацию во время нормальной работы системы. Во это время остальные узлы это ведомые ("followers") (принимающие ("acceptors") или голосующие("voters") узлы в Paxos).
 
-### Epochs
+### Эпохи
 
-Each period of normal operation in both Paxos and Raft is called an epoch ("term" in Raft). During each epoch only one node is the designated leader (a similar system is [used in Japan](http://en.wikipedia.org/wiki/Japanese_era_name) where era names change upon imperial succession).
+Каждый период нормального выполнения операции и в Paxos и в Raft называется эпохой("epoch") ("term" в Raft).  Во время каждой эпохи только один узел назначен лидером(похожая система [используется в Японии](http://en.wikipedia.org/wiki/Japanese_era_name) где названия эпох сменяется вместе со сменой императоров).
 
 <img src="images/epoch.png" alt="replication"  style="max-height: 130px;">
 
-After a successful election, the same leader coordinates until the end of the epoch. As shown in the diagram above (from the Raft paper), some elections may fail, causing the epoch to end immediately.
+После успешного выбора, лидер будет координировать систему пока не кончится эпоха. Как показано на диаграмме выше(из публикации о Raft), некотрые выборы лидера могут неудастся, что вызовет немедленный конец эпохи.
 
-Epochs act as a logical clock, allowing other nodes to identify when an outdated node starts communicating - nodes that were partitioned or out of operation will have a smaller epoch number than the current one, and their commands are ignored.
+Эпохи работают как логические часы позволяющие узлам определить когда узлы с устаревшими данными начинают сообщатся с ними - узлы бывшие в отделенной части или были выведеные из эксплутуации будут иметь меньший номер эпохи чем текущее значение эпохи работающих узлов, соотвественно команды устаревших узлов будут игнорироватся.
 
-### Leader changes via duels
+### Смена лидера при помощи дуэли
 
-During normal operation, a partition-tolerant consensus algorithm is rather simple. As we've seen earlier, if we didn't care about fault tolerance, we could just use 2PC. Most of the complexity really arises from ensuring that once a consensus decision has been made, it will not be lost and the protocol can handle leader changes as a result of a network or node failure.
+Во время нормальной операции, алгоритм консенсуса устойчивый к разделению довольно прост. Как мы увидели раньше, если мы не беспокоимся об устойчивости мы можем просто использовать 2PC. Более сложным является обеспечение условия того что, как только решение путем консенсуса было принято оно не будет потеряно и протокол сможет корректно обрабатывать смену лидера в результате сетевого сбоя или падения узла.
 
-All nodes start as followers; one node is elected to be a leader at the start. During normal operation, the leader maintains a heartbeat which allows the followers to detect if the leader fails or becomes partitioned.
+Все узлы начинают как ведомые; один узел выбирается в лидеры на старте. Во время нормальной работы систем, лидер поддерживает индикатор своего состояния("heartbeat") который позволяет ведомым узлам определить когда лидер упал или оказался отделенным.
 
-When a node detects that a leader has become non-responsive (or, in the initial case, that no leader exists), it switches to an intermediate state (called "candidate" in Raft) where it increments the term/epoch value by one, initiates a leader election and competes to become the new leader.
+Когда узел определяет что лидер неотвечает(или в случае старта работы системы - лидера просто нету), он переключается в промежуточное состояние ("кандидата" в Raft) в котором он увеличивает счетчик эпохи на один, иницирует выборы лидера и соревнуется за то чтобы стать лидером с другими кандидатами.
 
-In order to be elected a leader, a node must receive a majority of the votes. One way to assign votes is to simply assign them on a first-come-first-served basis; this way, a leader will eventually be elected. Adding a random amount of waiting time between attempts at getting elected will reduce the number of nodes that are simultaneously attempting to get elected.
+Для того чтобы быть избранным лидером, узел должен получить большинство голосов. Один способ это присвоить голоса простым присвоением их по приниципу "первым прибыл - первым получил; в этом способе лидер всегда будет выбран в конечном итоге. Добавление случайного количества времени ожидания между попытками узлов конкурировать за место лидера будет сокращать число узлов которые пытаются быть выбранными одновременно.
 
-### Numbered proposals within an epoch
+### Номерованные предложения в пределах эпохи
 
-During each epoch, the leader proposes one value at a time to be voted upon. Within each epoch, each proposal is numbered with a unique strictly increasing number. The followers (voters / acceptors) accept the first proposal they receive for a particular proposal number.
+Во время каждой эпохи лидер предлагает одно значение для голосования в один момент времени. В пределах эпохи каждое предложение нумеруется уникальным возрастающим числом. Ведомые(избирающие / акцепторы) принимают первое полученное ими предложение с определенным номером.
 
-### Normal operation
+### Нормальное проведение операций
 
-During normal operation, all proposals go through the leader node. When a client submits a proposal (e.g. an update operation), the leader contacts all nodes in the quorum. If no competing proposals exist (based on the responses from the followers), the leader proposes the value. If a majority of the followers accept the value, then the value is considered to be accepted.
+Во время нормальной операции, все предложения проходят через лидера. Когда клиент отправляет предложение(например иницирует операцию обновления), лидер контактирует со всеми узлами объединяя их в кворум. Если нет конкурирующих предложений (на основе полученных ответов от ведомых узлов), лидер предлагает значение. Если большинство узлов принимают значение, следовательно данное значение считается принятым.
 
-Since it is possible that another node is also attempting to act as a leader, we need to ensure that once a single proposal has been accepted, its value can never change. Otherwise a proposal that has already been accepted might for example be reverted by a competing leader. Lamport states this as:
+Так как возможно, что другой узел также возможно пытается выступать в качестве лидера, мы должны гарантировать что когда одно предложение было принято, его значение никогда не будет изменено. Иначе предложение которое уже было принято может быть к примеру отменено конкурирующим лидером. Лэмпорт говорит об этом так:
 
-> P2: If a proposal with value `v` is chosen, then every higher-numbered proposal that is chosen has value `v`.
+> P2: Если предложение со значением `v` было выбрано, тогда каждое предложение с большим номером должно предполагать что выбранное значение содержит `v`.
 
-Ensuring that this property holds requires that both followers and proposers are constrained by the algorithm from ever changing a value that has been accepted by a majority. Note that "the value can never change" refers to the value of a single execution (or run / instance / decision) of the protocol. A typical replication algorithm will run multiple executions of the algorithm, but most discussions of the algorithm focus on a single run to keep things simple. We want to prevent the decision history from being altered or overwritten.
+Для того чтобы это свойство было удовлетворено требуется чтобы и ведомые и предлагающие узлы были ограничены алгоритмом от изменений значений которые были приняты большинством. Заметим что "значение никогда не должно быть изменено" относится к значению времени одного исполнения(или запуска / экземпляра / решения) протокола. Типичные алгоритмы репликации запускают несколько экземпляров алгоритма, но большинство обсуждений алгоритмов фокусируются на одном экземпляре алгоритма для большей простоты понимания. Мы хотим оградить историю решений от изменений или удаления.
 
-In order to enforce this property, the proposers must first ask the followers for their (highest numbered) accepted proposal and value. If the proposer finds out that a proposal already exists, then it must simply complete this execution of the protocol, rather than making its own proposal. Lamport states this as:
+Для соблюдения этого свойства, предлагающие узлы должны сперва спрашивать ведомые узлы о их (последнем) принятом предложении и значении этого предложения. Если предлагающий узел определяет что предложение уже пройдено, тогда предложение просто отмечается как исполненное вместо того чтобы предлагать его. Лэмпорт говорит об этом так:
 
-> P2b. If a proposal with value `v` is chosen, then every higher-numbered proposal issued by any proposer has value `v`.
+> P2b. Если предложение со значением `v` было выбрано, тогда каждое предложение с большим номером выданное любым предлагающим узлом должно содержать значение `v`.
 
-More specifically:
+Более подробно:
 
-> P2c. For any `v` and `n`, if a proposal with value `v` and number `n` is issued [by a leader], then there is a set `S` consisting of a majority of acceptors [followers] such that either (a) no acceptor in `S` has accepted any proposal numbered less than `n`, or (b) `v` is the value of the highest-numbered proposal among all proposals numbered less than `n` accepted by the followers in `S`.
+> P2c. Для любого `v` и `n`, если предложение со значением `v` и номером `n` было предложено [лидером], тогда существует множество `S` содержащее большинство принимающих [ведомых] таким образом что либо (a) нет принимающих узлов в `S` которые приняли любое предложение с номером меньше `n` либо (b) `v` это значение последнего по номеру предложения среди всех предложений с номерами меньше чем `n` принятых ведомыми узлами из `S`.
 
-This is the core of the Paxos algorithm, as well as algorithms derived from it. The value to be proposed is not chosen until the second phase of the protocol. Proposers must sometimes simply retransmit a previously made decision to ensure safety (e.g. clause b in P2c) until they reach a point where they know that they are free to impose their own proposal value (e.g. clause a).
+Это ядро алгоритма Paxos, а также алгоритмов выросших из него. Значение которое было предложено не будет выбрано до второй фазы протокола. Предлагающие узлы должны иногда передавать предыдущее принятое решение для обеспечения корректности(это обеспечит утверждения b в P2c), пока они не достигают точки после которой они будут уверены что смогут заставить узлы принять предлагаемое значение (например такой точкой будет ситуация в утверждении a).
 
-If multiple previous proposals exist, then the highest-numbered proposal value is proposed. Proposers may only attempt to impose their own value if there are no competing proposals at all.
+Если сущестует несколько предыдуших предложений, тогда будет предложено значение из предложения с наибольшим номером. Предлагающие могут попытатся навязать их значение только если совсем нет других конкурирующих предложений.
 
-To ensure that no competing proposals emerge between the time the proposer asks each acceptor about its most recent value, the proposer asks the followers not to accept proposals with lower proposal numbers than the current one.
+Для того чтобы обеспечить гарантию того что конкурирующее предложение не всплывет во время между опросами лидером(предлагающим) каждого акцептора о последнем значении, предлагающий узел говорит ведомым не принимать предложения с более низким номером предложения чем текущее.
 
-Putting the pieces together, reaching a decision using Paxos requires two rounds of communication:
+Объединив все части вместе, принятие решения при помощи Paxos требует два раунда коммуникаций:
 
-    [ Proposer ] -> Prepare(n)                                [ Followers ]
-                 <- Promise(n; previous proposal number
-                    and previous value if accepted a
-                    proposal in the past)
+    [ Предлагающий узел ] -> Подготовка(n)                                [ Ведомые узлы ]
+                 <- Обещание(n; предыдущий номер предложения и предыдущее значение если прошлое предложение было принято)
 
-    [ Proposer ] -> AcceptRequest(n, own value or the value   [ Followers ]
-                    associated with the highest proposal number
-                    reported by the followers)
-                    <- Accepted(n, value)
+    [ Предлагающий ] -> ПринятьЗапрос(n, значение предлагающего узла или значение  [ Ведомых ]
+                    ассоцированное с наибольшим по номеру предложением
+                    полученным от них)
+                    <- Принято(n, значение)
 
-The prepare stage allows the proposer to learn of any competing or previous proposals. The second phase is where either a new value or a previously accepted value is proposed. In some cases - such as if two proposers are active at the same time (dueling); if messages are lost; or if a majority of the nodes have failed - then no proposal is accepted by a majority. But this is acceptable, since the decision rule for what value to propose converges towards a single value (the one with the highest proposal number in the previous attempt).
+Стадия подготовки позволяет предлагающему узлу узнать о любых конкурирующих или предыдущих предложениях. Во второй фазе будет предложено либо новое значение либо предыдущие принятое значение. В некотрых случаях - таких как когда активны два предлагающих узлах в одно и тоже время(дуэль); когда сообщения потеряны; или большинство узлов отказали - тогда не одно предложение не будет принято большинством. Однако это приемлимо, так как правило принятия решения гласит что предложенное значение сходится к одному значению (с наибольшим номером предложения в прошлой попытке).
 
-Indeed, according to the FLP impossibility result, this is the best we can do: algorithms that solve the consensus problem must either give up safety or liveness when the guarantees regarding bounds on message delivery do not hold. Paxos gives up liveness: it may have to delay decisions indefinitely until a point in time where there are no competing leaders, and a majority of nodes accept a proposal. This is preferable to violating the safety guarantees.
+Действительно, в соотвествии с FLP теоремой, это лучшее что мы можем получить: алгоритмы которые решают проблему консенсуса должны пожертвовать либо корректностью либо живучестью если нет гарантий на длительность доставки сообщений. Paxos жертвует живучестью: принятие решения может быть отложено на неопределенный срок до того времени пока не будет конкурирующих лидеров, и большинство узлов примет значение. Это предпочтительнее нарушения гарантий корректности.
 
-Of course, implementing this algorithm is much harder than it sounds. There are many small concerns which add up to a fairly significant amount of code even in the hands of experts. These are issues such as:
+Конечно, реализация этого алгоритма намного сложнее чем может показатся. Есть много небольших проблем который добавляют довольно значительное количество кода даже в руках экспертов. Это такие проблемы как:
 
-- practical optimizations:
-  - avoiding repeated leader election via leadership leases (rather than heartbeats)
-  - avoiding repeated propose messages when in a stable state where the leader identity does not change
-- ensuring that followers and proposers do not lose items in stable storage and that results stored in stable storage are not subtly corrupted (e.g. disk corruption)
-- enabling cluster membership to change in a safe manner (e.g. base Paxos depends on the fact that majorities always intersect in one node, which does not hold if the membership can change arbitrarily)
-- procedures for bringing a new replica up to date in a safe and efficient manner after a crash, disk loss or when a new node is provisioned
-- procedures for snapshotting and garbage collecting the data required to guarantee safety after some reasonable period (e.g. balancing storage requirements and fault tolerance requirements)
+- практические оптимизации:
+  - избавление от повторных выборов лидера при помощи "аренды" лидерства (а не проверок жизнеспособности лидера)
+  - избежание повторных предложений сообщений когда система находится в стабильном состоянии и лидер не изменяется
+- обеспечние надежности сохранения данных в стабильных хранилищах лидера и ведомых узлов в случае отказа хранлищ(к примеру разрушения диска)
+- возможность безопасного включения/исключения из кластера(например базовый Paxos зависит от того факта что большинство всегда отделяется в одном узле, который не может обработать произвольные включения исключения из кластера)
+- процедуры для доведения новой реплики до актуального состояния в случае после востановления или потери диска или при добавлении нового узла
+- процедуры для бэкапинга и сборки мусора необходимых для обеспечения корректности после некотрого времени работы (компромисс между требованием к хранению данных и устойчивости при откаазах)
 
-Google's [Paxos Made Live](http://labs.google.com/papers/paxos_made_live.html) paper details some of these challenges.
+Публикация Google [Paxos Made Live](http://labs.google.com/papers/paxos_made_live.html) более детально освещает эти задачи.
 
-## Partition-tolerant consensus algorithms: Paxos, Raft, ZAB
+## Алгоритмы консенсуса устойчивые к разделению: Paxos, Raft, ZAB
 
-Hopefully, this has given you a sense of how a partition-tolerant consensus algorithm works. I encourage you to read one of the papers in the further reading section to get a grasp of the specifics of the different algorithms.
+Надеюсь, вы теперь имеете представление о том как работают алгоритмы консенсуса устойчивые к разделению. Для лучшего понимания специфики конкретных алгоритмов необходимо прочитать статьи указанные в конце главе.
 
-*Paxos*. Paxos is one of the most important algorithms when writing strongly consistent partition tolerant replicated systems. It is used in many of Google's systems, including the [Chubby lock manager](http://research.google.com/archive/chubby.html) used by [BigTable](http://research.google.com/archive/bigtable.html)/[Megastore](http://research.google.com/pubs/pub36971.html), the Google File System as well as [Spanner](http://research.google.com/archive/spanner.html).
+*Paxos*. Paxos это один из наиболее важных алгоритмов для случая когда создаются строго согласованные реплицированные системы с устойчивостью к разделению. Он используется во многих системах Google, включая [менеджер блокировок Chubby](http://research.google.com/archive/chubby.html) использующийся в [BigTable](http://research.google.com/archive/bigtable.html)/[Megastore](http://research.google.com/pubs/pub36971.html), Google File System а также [Spanner](http://research.google.com/archive/spanner.html).
 
-Paxos is named after the Greek island of Paxos, and was originally presented by Leslie Lamport in a paper called "The Part-Time Parliament" in 1998. It is often considered to be difficult to implement, and there have been a series of papers from companies with considerable distributed systems expertise explaining further practical details (see the further reading). You might want to read Lamport's commentary on this issue [here](http://research.microsoft.com/en-us/um/people/lamport/pubs/pubs.html#lamport-paxos) and [here](http://research.microsoft.com/en-us/um/people/lamport/pubs/pubs.html#paxos-simple).
+Paxos назван в честь греческого острова Паксос, и был представлен Лесли Лэмпортом(Leslie Lamport) в публикации "Частичный парламент" в 1998. Он часто считается крайне трудным для реализации, и есть серия работ от компаний обладающих опытом в области распределенных систем, объясняюших многие практические детали(см. материалы для дальнейшего чтения). Возможно вам будет полезно прочитать комментарии Лэмпорта об этих проблемах [здесь](http://research.microsoft.com/en-us/um/people/lamport/pubs/pubs.html#lamport-paxos) и [здесь](http://research.microsoft.com/en-us/um/people/lamport/pubs/pubs.html#paxos-simple).
 
-The issues mostly relate to the fact that Paxos is described in terms of a single round of consensus decision making, but an actual working implementation usually wants to run multiple rounds of consensus efficiently. This has led to the development of many [extensions on the core protocol](http://en.wikipedia.org/wiki/Paxos_algorithm) that anyone interested in building a Paxos-based system still needs to digest. Furthermore, there are additional practical challenges such as how to facilitate cluster membership change.
+Большая часть проблем относится к тому факту что Paxos опичан в терминах одного раунда консенсуса, но актуальные работающие реализации обычно хотят запускать несколько раундов консенсуса для эффективности. Это привело к разработке многих  [расширений ядра протокола](http://en.wikipedia.org/wiki/Paxos_algorithm)  которые необходимо изучить тем кто заинтересован в построении системы основанной на Paxos. Кроме того, существуют дополнительные практические задачи такие как упростить изменение размеров кластера.
 
-*ZAB*. ZAB - the Zookeeper Atomic Broadcast protocol is used in Apache Zookeeper. Zookeeper is a system which provides coordination primitives for distributed systems, and is used by many Hadoop-centric distributed systems for coordination (e.g. [HBase](http://hbase.apache.org/), [Storm](http://storm-project.net/), [Kafka](http://kafka.apache.org/)). Zookeeper is basically the open source community's version of Chubby. Technically speaking atomic broadcast is a problem different from pure consensus, but it still falls under the category of partition tolerant algorithms that ensure strong consistency.
+*ZAB*. ZAB - Zookeeper Atomic Broadcast протокол используемый в Apache Zookeeper. Zookeeper это система которая предоставляет примитивы для координации для распределенных систем, и используемая в многих Hadoop-ориентированных распределенных системах для координации (например [HBase](http://hbase.apache.org/), [Storm](http://storm-project.net/), [Kafka](http://kafka.apache.org/)). Zookeeper это в основном открытая версия Chubby. технически атомарный броадкастинг это другая проблема нежели чистая проблема консенсуса, но она также подпадает под категорию алгоритмов устойчивых к разделению предоставлящих строгую согласованность.
 
-*Raft*. Raft is a recent (2013) addition to this family of algorithms. It is designed to be easier to teach than Paxos, while providing the same guarantees. In particular, the different parts of the algorithm are more clearly separated and the paper also describes a mechanism for cluster membership change. It has recently seen adoption in [etcd](https://github.com/coreos/etcd) inspired by ZooKeeper.
+*Raft*. Raft это недавнее (2013) пополнение в группе алгоритмов. Разработанный чтобы быть проще в понимании, он представляет техе гарантии. В частности, различные части алгоритма лучше разделены и в документе также описан механизм для изменения членства в кластере. Существует реализация в [etcd](https://github.com/coreos/etcd) вдохновленнная ZooKeeper.
 
-## Replication methods with strong consistency
+## Методы репликации с строгой согласованностью
 
-In this chapter, we took a look at replication methods that enforce strong consistency. Starting with a contrast between synchronous work and asynchronous work, we worked our way up to algorithms that are tolerant of increasingly complex failures. Here are some of the key characteristics of each of the algorithms:
+В этой главе, мы как взглянули на методы репликации которые обеспечивают строгую согласованность. Начав с различий между синхронными и асинхронными действиями,  Starting with a contrast between synchronous work and asynchronous work, мы проложили себе путь к алгоритмам которые способны выдерживать более сложные проблемы. приведем некотрые харатеристики изученных алгоритмов:
 
 #### Primary/Backup
 
-- Single, static master
-- Replicated log, slaves are not involved in executing operations
-- No bounds on replication delay
-- Not partition tolerant
-- Manual/ad-hoc failover, not fault tolerant, "hot backup"
+- Единственный и неизменный мастер
+- Репликация лога, реплики не учавствуют в операциях
+- Нет границ для задержки репликации
+- Неустойчиво к разделению
+- Ручной/ситуационный фейловер(постанновление после отказа), не устойчиво к отказам, можно использовать как "живой бэкап"
 
 #### 2PC
 
-- Unanimous vote: commit or abort
-- Static master
-- 2PC cannot survive simultaneous failure of the coordinator and a node during a commit
-- Not partition tolerant, tail latency sensitive
+- Единогласное голосование: потвердить или отвергнуть
+- Единственный мастер
+- 2PC не переносит одновременного отказа координатора и узла во время подтверждения операции
+- Не устойчив к разделению, чувствителен к задержкам
 
 #### Paxos
 
-- Majority vote
-- Dynamic master
-- Robust to n/2-1 simultaneous failures as part of protocol
-- Less sensitive to tail latency
+- Голосование большинства
+- Динамическое изменение лидера
+- Устойчивость к n/2-1 одновременно отказавшим узлам, как часть протокола
+- Малая чувствительность к задержкам
 
 ---
 
-## Further reading
+## Для дальнейшего чтения
 
 #### Primary-backup and 2PC
 
