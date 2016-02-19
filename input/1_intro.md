@@ -1,256 +1,256 @@
-# %chapter_number%. Distributed systems at a high level
+# %chapter_number%. Распределенные системы на высоком уровне
 
-> Distributed programming is the art of solving the same problem that you can solve on a single computer using multiple computers.
+> Распределенное программирование это искуство решать теже самые проблемы которые вы можете решить на одном компьютере используя множество компьютеров.
 
-There are two basic tasks that any computer system needs to accomplish:
+Есть две базовых  задачи которые  должна выполнять любая система:
 
-- storage and
-- computation
+- хранение данных и
+- вычисления
 
-Distributed programming is the art of solving the same problem that you can solve on a single computer using multiple computers - usually, because the problem no longer fits on a single computer.
+Распределенное программирование это искуство решать теже самые проблемы которые вы можете решить на одном компьютере используя множество компьютеров - обычно, потому что данные проблемы больше нельзя решить на одном компьютере.
 
-Nothing really demands that you use distributed systems. Given infinite money and infinite R&D time, we wouldn't need distributed systems. All computation and storage could be done on a magic box - a single, incredibly fast and incredibly reliable system *that you pay someone else to design for you*.
+Конечно в реальности ничто не заставляет вас использовать распределенные системы. Имея бесконечные деньги и бесконечное время на исследования, мы сможем обойтись без использования распределенных систем. А все вычисления и хранение всех данных могут быть произведены на некотрой "магической коробке" - бесконечно быстрое и надежная система находящаяся в одном экземпляре *за разработку которой вы вероятно заплатите кому то другому*.
 
-However, few people have infinite resources. Hence, they have to find the right place on some real-world cost-benefit curve. At a small scale, upgrading hardware is a viable strategy. However, as problem sizes increase you will reach a point where either the hardware upgrade that allows you to solve the problem on a single node does not exist, or becomes cost-prohibitive. At that point, I welcome you to the world of distributed systems.
+Тем не менее, не многие люди имеют бесконечные ресурсы. Следовательно необходимо найти наиболее эффективную точку приложения средств на кривой затрат. В небольших масштабах, апгрейд оборудование является жизнеспособной стратегией. Однако, с увеличение размеров проблем вы столкнетесь с ситуацией когда апргейд оборудования на одному узле либо не решает проблемы либо стоит очень дорого. С этого момента, добро пожаловать в мир распределенных систем.
 
-It is a current reality that the best value is in mid-range, commodity hardware - as long as the maintenance costs can be kept down through fault-tolerant software.
+В нынешней ситуации лучшее решение сохранять стоимость оборудование  в середине ценового диапозона - до тех пор пока мы можем понижать стоимость решения проблем создавая распределенные отказоустойчивыые системы.
 
-Computations primarily benefit from high-end hardware to the extent to which they can replace slow network accesses with internal memory accesses. The performance advantage of high-end hardware is limited in tasks that require large amounts of communication between nodes.
+Вычисления могут получить приемущества от hi-end оборудование в той мере в которой оно может возместить потери производительности от медленного доступа в сеть быстрым доступом в память. Увеличение производительности путем приобретения hi-end обородувания ограничено задачами которые требуют большое число межсерверныз взаимодействий.
 
 ![cost-efficiency](images/barroso_holzle.png)
 
-As the figure above from [Barroso, Clidaras & Hölzle](http://www.morganclaypool.com/doi/abs/10.2200/S00516ED2V01Y201306CAC024) shows, the performance gap between high-end and commodity hardware decreases with cluster size assuming a uniform memory access pattern across all nodes.
+Как показывает картинка приведенная выше  [Barroso, Clidaras & Hölzle](http://www.morganclaypool.com/doi/abs/10.2200/S00516ED2V01Y201306CAC024) , разрыв производительности между hi-end системами и системами среднего уровня уменьшается с увеличением размера кластера в предположении равномерного доступа к памяти всех узлов.
 
-Ideally, adding a new machine would increase the performance and capacity of the system linearly. But of course this is not possible, because there is some overhead that arises due to having separate computers. Data needs to be copied around, computation tasks have to be coordinated and so on. This is why it's worthwhile to study distributed algorithms - they provide efficient solutions to specific problems, as well as guidance about what is possible, what the minimum cost of a correct implementation is, and what is impossible.
+В идеальном мире, добавление новой машины увеличивало бы производительность линейно. Но конечно это не возможно, так как существует некотрые накладные расходы на коммуникацию между узлами. Необходмио копировать данные с узла на узел а также координировать работу разных узлов. Именно поэтому стоит изучать распределенные алгоритмы - они предоставляют эффективные решения спечифических проблем когда это возможно либо снижает стоимость накладных расходов в случаев если избавиться от них совсем невзможно.
 
-The focus of this text is on distributed programming and systems in a mundane, but commercially relevant setting: the data center. For example, I will not discuss specialized problems that arise from having an exotic network configuration, or that arise in a shared-memory setting. Additionally, the focus is on exploring the system design space rather than on optimizing any specific design - the latter is a topic for a much more specialized text.
+В центре внимания этого текста распределенное программирование и системы в реальной жизни, но не промышленно важный параметр - датацентры. К примеру, в книге не будет обсуждатся специфичные проблемы которые могут быть при какойто экзотической настройке сети или возникаюшие при доступе к разделенной памяти. Основной упор делается на изучение пространства возможных архитектурных решений а  не о оптимизации какой либо определенной системы - эта тема более подходит для более специализированного текста.
 
-## What we want to achieve: Scalability and other good things
+## Чего мы хотим достичь: Масштабируемость и другие хорошие вещи
 
-The way I see it, everything starts with the need to deal with size.
+Все начинается с решения проблемы с размерами(данных и нагрузок).
 
-Most things are trivial at a small scale - and the same problem becomes much harder once you surpass a certain size, volume or other physically constrained thing. It's easy to lift a piece of chocolate, it's hard to lift a mountain. It's easy to count how many people are in a room, and hard to count how many people are in a country.
+Многие вещи довольно тривиальны в малых масштабах - и становится крайне сложной при увеличении размеров или иных физических характеристик до определенного уровня. Легко поднять кусочек шоколада и тяжело поднять гору. Легко посчитать число людей в комнате и тяжело посчитать число людей в стране.
 
-So everything starts with size - scalability. Informally speaking, in a scalable system as we move from small to large, things should not get incrementally worse. Here's another definition:
-
-<dl>
-  <dt>[Scalability](http://en.wikipedia.org/wiki/Scalability)</dt>
-  <dd>is the ability of a system, network, or process, to handle a growing amount of work in a capable manner or its ability to be enlarged to accommodate that growth.</dd>
-</dl>
-
-What is it that is growing? Well, you can measure growth in almost any terms (number of people, electricity usage etc.). But there are three particularly interesting things to look at:
-
-- Size scalability: adding more nodes should make the system linearly faster; growing the dataset should not increase latency
-- Geographic scalability: it should be possible to use multiple data centers to reduce the time it takes to respond to user queries, while dealing with cross-data center latency in some sensible manner.
-- Administrative scalability: adding more nodes should not increase the administrative costs of the system (e.g. the administrators-to-machines ratio).
-
-Of course, in a real system growth occurs on multiple different axes simultaneously; each metric captures just some aspect of growth.
-
-A scalable system is one that continues to meet the needs of its users as scale increases. There are two particularly relevant aspects - performance and availability - which can be measured in various ways.
-
-### Performance (and latency)
+Этот факт является основой такого свойства как масштабируемость. Неформально говоря, в масштабируемой системе переходя от малого обьема к большим мы не должны получать постепенное ухудшение. Вот еще одно определение:
 
 <dl>
-  <dt>[Performance](http://en.wikipedia.org/wiki/Computer_performance)</dt>
-  <dd>is characterized by the amount of useful work accomplished by a computer system compared to the time and resources used.</dd>
+  <dt>[Мастштабируемость](http://en.wikipedia.org/wiki/Scalability)</dt>
+  <dd>способность системы, сети или процесса справляться с увеличением рабочей нагрузки (увеличивать свою производительность) при добавлении ресурсов.</dd>
 </dl>
 
-Depending on the context, this may involve achieving one or more of the following:
+Что это могут быть за ресурсы? Вы можете измерять их в любом единицах измерения (число людей, использования электричества итд.). Но есть три интересных случая масштабируемости - каждый задействует определенный тип ресурсов:
 
-- Short response time/low latency for a given piece of work
-- High throughput (rate of processing work)
-- Low utilization of computing resource(s)
+- Мастштабируемость размера: добавление большего числа должно позволять увеличивать производительность линейно; увеличение размеров данных не должно увеличивать задержки обработки данных
+- Гео-масштабируемость: возможность использовать несколько датацентров для сокрашения времени ответа юзеру, с учетом задержки кросс-дата-центр коммуникаций.
+- Административная масштабируемость: добавление большего числа узлов не должно увеличивать количество администраторов необходимых для обслуживание всего парка машин.
 
-There are tradeoffs involved in optimizing for any of these outcomes. For example, a system may achieve a higher throughput by processing larger batches of work thereby reducing operation overhead. The tradeoff would be longer response times for individual pieces of work due to batching.
+Конечно в реальной системе рост происходит сразу в нескольких направлениях; каждый отдельный показатель фиксирует отдельный аспект роста.
 
-I find that low latency - achieving a short response time - is the most interesting aspect of performance, because it has a strong connection with physical (rather than financial) limitations. It is harder to address latency using financial resources than the other aspects of performance.
+Масштабируемая система продолжает удовлетворять потребности своих пользователей в то время как растет общий масштаб системы и данных. Есть два сопутсвующих аспекта - производительность и доступность - которые могут быть измерены раздичным способом.
 
-There are a lot of really specific definitions for latency, but I really like the idea that the etymology of the word evokes:
+### производительность (и отзывчивость)
 
 <dl>
-  <dt>Latency</dt>
-  <dd>The state of being latent; delay, a period between the initiation of something and the occurrence.</dd>
+  <dt>[Производительность](http://en.wikipedia.org/wiki/Computer_performance)</dt>
+  <dd>это характеристика количества полезной работы выполненой компьютерной системой в сравнение с потраченным ей временем и числом ресурсов.</dd>
 </dl>
 
-And what does it mean to be "latent"?
+В зависимости от контекста она может включать в себя достижение одной или более целей:
+
+- Малое время ответа/малое время задержки для отдельного участка работы
+- Высокая пропускная способность(скорость обработки)
+- Низкое потребление компьютерных
+
+Однако существуют некотрые компромисы при достижении любой из этих целей. Для примера, система может достигнуть высокой производительности путем обработки информации большими партиями снижая рабочую нагрузку. Однако время ответа для одного запроса возрастет изза увеличения количества данных обрабатываемых за один запрос.
+
+Я нахожу что низкая латентность(latency) системы - достижение малого времени ответа - наиболее важный аспект производительсности, так как он имеет строгую зависимость с физическими(скорее даже финансовыми) ограничениями. Т.е. задержки сильнее влиют на финансовые аспекты функционирования системы чем другие аспекты вопросы производительности.
+
+Существое много определений понятия "латентность", но действительно просто определить его через этимологию данного слова:
 
 <dl>
-  <dt>Latent</dt>
-  <dd>From Latin latens, latentis, present participle of lateo ("lie hidden"). Existing or present but concealed or inactive.</dd>
+  <dt>Латентности</dt>
+  <dd>Состояние в котором обьект латентнен; прерывание, период между началом чего либо и его возникновением.</dd>
 </dl>
 
-This definition is pretty cool, because it highlights how latency is really the time between something happened and the time it has an impact or becomes visible.
-
-For example, imagine that you are infected with an airborne virus that turns people into zombies. The latent period is the time between when you became infected, and when you turn into a zombie. That's latency: the time during which something that has already happened is concealed from view.
-
-Let's assume for a moment that our distributed system does just one high-level task: given a query, it takes all of the data in the system and calculates a single result. In other words, think of a distributed system as a data store with the ability to run a single deterministic computation (function) over its current content:
-
-`result = query(all data in the system)`
-
-Then, what matters for latency is not the amount of old data, but rather the speed at which new data "takes effect" in the system. For example, latency could be measured in terms of how long it takes for a write to become visible to readers.
-
-The other key point based on this definition is that if nothing happens, there is no "latent period". A system in which data doesn't change doesn't (or shouldn't) have a latency problem.
-
-In a distributed system, there is a minimum latency that cannot be overcome: the speed of light limits how fast information can travel, and hardware components have a minimum latency cost incurred per operation (think RAM and hard drives but also CPUs).
-
-How much that minimum latency impacts your queries depends on the nature of those queries and the physical distance the information needs to travel.
-
-### Availability (and fault tolerance)
-
-The second aspect of a scalable system is availability.
+И что же мы понимаем под прилагательным "латентный"?
 
 <dl>
-  <dt>[Availability](http://en.wikipedia.org/wiki/High_availability)</dt>
-  <dd>the proportion of time a system is in a functioning condition. If a user cannot access the system, it is said to be unavailable. </dd>
+  <dt>Латентный</dt>
+  <dd>Существование в скрытом или неактивном режиме</dd>
 </dl>
 
-Distributed systems allow us to achieve desirable characteristics that would be hard to accomplish on a single system. For example, a single machine cannot tolerate any failures since it either fails or doesn't.
+Это определение хорошо тем что оно подчеркивает как латентность определяет количество времени которое пройдет от того момента что либо произошло в системе до того момента когда это изменение станет видимым для наблюдателя(пользователя системы).
 
-Distributed systems can take a bunch of unreliable components, and build a reliable system on top of them.
+Для примера, представим что ты заразился вирусом который преврашает людей в зомби. Период латентности это время прошедшая с момента когда ты заразился до момента когда ты превратишься в зомби. Это и есть латентность: время требуюшееся для того чтобы чтото перешло из скрытого состояние в видимое.
 
-Systems that have no redundancy can only be as available as their underlying components. Systems built with redundancy can be tolerant of partial failures and thus be more available. It is worth noting that "redundant" can mean different things depending on what you look at - components, servers, datacenters and so on.
+Давайте предположим на минуту что наша распределенная система выполняет только высокоуровневые задачи: выполняет запрос который принимает все данные в системе и вычисляет по ним какой один результат. Другими словами, размышляйте о распределенной системе как о хранилище данных с возможностью выполнить некую детерминированную функцию от хранящихся в ней данных:
 
-Formulaically, availability is: `Availability = uptime / (uptime + downtime)`.
+`результат = запрос(все данные в системе)`
 
-Availability from a technical perspective is mostly about being fault tolerant. Because the probability of a failure occurring increases with the number of components, the system should be able to compensate so as to not become less reliable as the number of components increases.
+Тогда, на величину задержки будет влиять не количество данных, а скорость с которой новые данные вступают в силу. Для примера, задержка может показывать как долго пользватели которые читают информацию из системы не увидять новых данных записанных другими пользователя.
 
-For example:
+Другой ключевой особенность данного определения является то что если в системе ничего не сменилось то период задержки будет равен нулю. Система в которой данные не изменяются не имеет проблем с отзывчивостью.
+
+В распределенных системах есть минималььная задержка которую физически нельзя преодолеть: скорость света ограничивает скорость передачи информации а апаратные компоненты ограничивают скорость выполнения операций(в первую очередь диск и оперативная память но также и процессор).
+
+Минимально возможная задержка зависит от того какое растояние надо преодолеть информации и типа запросов к данным.
+
+### Доступность (и отказоустойчивость)
+
+Второй аспект масштабируемых систем это доступность.
+
+<dl>
+  <dt>[Доступность](http://en.wikipedia.org/wiki/High_availability)</dt>
+  <dd>время в течении которого система находится в состоянии работоспособности. Если пользователь не имеет доступа к системе - система не доступна. </dd>
+</dl>
+
+Распределенные системы позволяют нам достигать значений характеристик которые будет очень сложно достичь в одной системе. Для примера одна машина никогда не будет устойчива ко всему спектру отказов.
+
+Распределенные системы позволяют брать ненадежные элементы и объединяя их получать надежную систему.
+
+Системы которые не имеют избыточности надежны настолько насколько надежны их компоненты. Системы построенные с избыточностью могут быть устойчивы к частичным сбоям их компонентов.Избычтоность может выражатся в чем угодно - серверах, компонентах, датацентрах ит.
+
+Формально, доступность это: `Доступность = время работы / (время работы + время отказа)`.
+
+С технической точки зрения доступность системы обеспечивается в певую очередь высокой отказоустойчивостью. Поскольку вероятность отказа одного конкретного компонента системы увеличиваается с ростом числа компонентов система должна это компенсировать тем что не позволять увеличиваться вероятность отказа всей системы при росте числа компонентов.
+
+Пример:
 
 <table>
 <tr>
-  <td>Availability %</td>
-  <td>How much downtime is allowed per year?</td>
+  <td>Достуность %</td>
+  <td>Суммарное время неработоспособности системы в год?</td>
 </tr>
 <tr>
-  <td>90% ("one nine")</td>
-  <td>More than a month</td>
+  <td>90% ("одна девятка")</td>
+  <td>Более месяца</td>
 </tr>
 <tr>
-  <td>99% ("two nines")</td>
-  <td>Less than 4 days</td>
+  <td>99% ("две девятки")</td>
+  <td>более 4 дней</td>
 </tr>
 <tr>
-  <td>99.9% ("three nines")</td>
-  <td>Less than 9 hours</td>
+  <td>99.9% ("три девятки")</td>
+  <td>более 9 часов</td>
 </tr>
 <tr>
-  <td>99.99% ("four nines")</td>
-  <td>Less than an hour</td>
+  <td>99.99% ("четыре девятки")</td>
+  <td>более чем час</td>
 </tr>
 <tr>
-  <td>99.999% ("five nines")</td>
-  <td>~ 5 minutes</td>
+  <td>99.999% ("5 девяток")</td>
+  <td>~ 5 минут</td>
 </tr>
 <tr>
-  <td>99.9999% ("six nines")</td>
-  <td>~ 31 seconds</td>
+  <td>99.9999% ("6 девяток")</td>
+  <td>~ 31 секунд</td>
 </tr>
 </table>
 
 
-Availability is in some sense a much wider concept than uptime, since the availability of a service can also be affected by, say, a network outage or the company owning the service going out of business (which would be a factor which is not really relevant to fault tolerance but would still influence the availability of the system). But without knowing every single specific aspect of the system, the best we can do is design for fault tolerance.
+Доступность конечно  не определяется времемнем безотказной работы. Сервисы могут быть недоступны изза сетевых проблем либо каких либо проблем бизнесса (что конечно не проблема решаемая путем отказоустойчивости). Но не имею информации о всех аспектах будующего функционирования системы лучшее что мы можем сделать это разрабатывать системы закладывая в нее свойство отказоустойчивости.
 
-What does it mean to be fault tolerant?
+Что мы понимаем под отказоустойчивостью?What does it mean to be fault tolerant?
 
 <dl>
-  <dt>Fault tolerance</dt>
-  <dd>ability of a system to behave in a well-defined manner once faults occur</dd>
+  <dt>Отказоустойчивость</dt>
+  <dd>Способность системы вести себя заранее определенным образом в случае отказов</dd>
 </dl>
 
-Fault tolerance boils down to this: define what faults you expect and then design a system or an algorithm that is tolerant of them. You can't tolerate faults you haven't considered.
+Создание отказоустойчивых систем сводится к следующему: определить возможные отказы и разработать алгоритмы которые нечувстивительны к такого рода отказов. Вы не можете создать алгоритм не чувствительный к отказам которые вы не предустмотрели.
 
-## What prevents us from achieving good things?
+## Что мешает нам достичь этих целей(производительность и отказоустойчивость)?
 
-Distributed systems are constrained by two physical factors:
+Распределенные системы ограничены двумя факторами:
 
-- the number of nodes (which increases with the required storage and computation capacity)
-- the distance between nodes (information travels, at best, at the speed of light)
+- число узлов (которое будет возрастать в соотвествии с возрастающими требованиями к хранию данных и их обработке)
+- растояние между узлами (информация распространяется в лучшем случае со скоростью света)
 
-Working within those constraints:
+Работая в этих ограничениях:
 
-- an increase in the number of independent nodes increases the probability of failure in a system (reducing availability and increasing administrative costs)
-- an increase in the number of independent nodes may increase the need for communication between nodes (reducing performance as scale increases)
-- an increase in geographic distance increases the minimum latency for communication between distant nodes (reducing performance for certain operations)
+- при увеличении числа независимых узлов увеличивается вероятность отказа в системе (сокращая доступность и увеличивая административные расходы)
+- при увеличении числа независимых узлов может возрастать необходимость в коммуникации между узлами (сокращая производительность при масштабировании системы)
+- при увеличении растояния между узлами увеличевается задержка при коммуниции между удаленными узлами(сокращая производительность каждой конкретной операции)
 
-Beyond these tendencies - which are a result of the physical constraints - is the world of system design options.
+Помимо ограничений физического характера существуют также ограничения выбраного нами дизайна системы.
 
-Both performance and availability are defined by the external guarantees the system makes. On a high level, you can think of the guarantees as the SLA (service level agreement) for the system: if I write data, how quickly can I access it elsewhere? After the data is written, what guarantees do I have of durability? If I ask the system to run a computation, how quickly will it return results? When components fail, or are taken out of operation, what impact will this have on the system?
+Система должна гарантировать поддержание производительности и отказоустойчивости. Если рассуждать абстрактно, то вы можете думать о данных гарантиях, как о некоем "Соглашении об уровне услуг" (*англ. SLA*), которое отвечает на ряд вопросов. Если я запишу данные, как быстро они будут доступны в другом месте? После того как я записал данные, какие гарантии даются касательно их сохранности? Если я сделаю запрос к системе на вычисление, как быстро я буду получать результат? Если компоненты выйдут из строя, какое влияние это окажет на систему в целом?
 
-There is another criterion, which is not explicitly mentioned but implied: intelligibility. How understandable are the guarantees that are made? Of course, there are no simple metrics for what is intelligible.
+Есть еще один критерий, который как правило не упоминается, но подразумевается - понятность. Он отвечает на вопрос: насколько понятны предлагаемые гарантии? К сожалению, не существует каких-то простых метрик, описывающих понятность.
 
-I was kind of tempted to put "intelligibility" under physical limitations. After all, it is a hardware limitation in people that we have a hard time understanding anything that involves [more moving things than we have fingers](http://en.wikipedia.org/wiki/Working_memory#Capacity). That's the difference between an error and an anomaly - an error is incorrect behavior, while an anomaly is unexpected behavior. If you were smarter, you'd expect the anomalies to occur.
+Мне хотелось добавить "понятность" к физическим ограничениям. В конце концов, применительно к людям, это действительно физическое ограничение. Нам нужно время, чтобы вникнуть в суть предмета, если он одновременно включает в себя [больше непосредственно взаимодействующих частей, чем у нас пальцев](http://en.wikipedia.org/wiki/Working_memory#Capacity). Отсюда вытекает различие между двумя нежелательными поведениями системы "ошибкой" и "аномалией" - ошибкой назвают некорректное поведение, аномалия же в свою очередь, это неожиданное поведение. Хороший специалист должен быть готов, к тому, что аномалии могут происходить.
 
-## Abstractions and models
+## Абстракции и модели
 
-This is where abstractions and models come into play. Abstractions make things more manageable by removing real-world aspects that are not relevant to solving a problem. Models describe the key properties of a distributed system in a precise manner. I'll discuss many kinds of models in the next chapter, such as:
+В этом месте в игру вступают абстракции и модели. Абстракции скрывают некоторые детали, которые непосредственно не влияют на решение задачи, позволяя управлять глобальными объектами. А модели максимально точно описывают ключевые свойства распределенной системы. В следующей главе будут рассмотрены следующие виды моделей:
 
-- System model (asynchronous / synchronous)
-- Failure model (crash-fail, partitions, Byzantine)
-- Consistency model (strong, eventual)
+- Модель системы (ассинхронная / синхронная)
+- Модель отказов (crash-fail, partitions, Byzantine)
+- Модель консистентности (строгая, причинная)
 
-A good abstraction makes working with a system easier to understand, while capturing the factors that are relevant for a particular purpose.
+Хорошая абстракция облегчает работу с системой, путем манипулирования только ключевыми факторами, имеющими значение при достижении конкретной цели.
 
-There is a tension between the reality that there are many nodes and with our desire for systems that "work like a single system". Often, the most familiar model (for example, implementing a shared memory abstraction on a distributed system) is too expensive.
+При наличии множества узлов, наше желание чтобы "система работала как единое целое" не всегда всегда оказывается правильным. Часто наиболее привычная модель (например, создание разделяемой памяти), является невыгодным.
 
-A system that makes weaker guarantees has more freedom of action, and hence potentially greater performance - but it is also potentially hard to reason about. People are better at reasoning about systems that work like a single system, rather than a collection of nodes.
+Система, которая дает наиболее неопределенные гарантии имеет большую свободу действий, следовательно потенциально большую производительность. Но это так же потенциально более сложный объект для понимания. Людям проще думать о системе, как о едином целом, а не о наборе узлов.
 
-One can often gain performance by exposing more details about the internals of the system. For example, in [columnar storage](http://en.wikipedia.org/wiki/Column-oriented_DBMS), the user can (to some extent) reason about the locality of the key-value pairs within the system and hence make decisions that influence the performance of typical queries. Systems which hide these kinds of details are easier to understand (since they act more like single unit, with fewer details to think about), while systems that expose more real-world details may be more performant (because they correspond more closely to reality).
+Зачастую можно получить большую производительность предоставляя пользователю системы более подробную информацию о внутреннем устройстве. Для примера в [колоночно-ориентированных базах данных](http://en.wikipedia.org/wiki/Column-oriented_DBMS), пользователь может (в некотрой степени) иметь представление о том в какой части системы(в каком виде) находятся пары ключ-значение и на основе этого принимать решения которые виляют на производительность типичных запросов. Системы которые скрывают подобные детали реализации проще для понимания(так как они представляют собой единое целое с некотрым определенным интерфейсом с меньшим числом деталей), однако системы которые выставляют наружу больше деталей(то есть менее абстрактные системы)  могут быть более производительными (потому что они более согласуются с реальностью - так как реальность может быть весьма разнообразна).
 
-Several types of failures make writing distributed systems that act like a single system difficult. Network latency and network partitions (e.g. total network failure between some nodes) mean that a system needs to sometimes make hard choices about whether it is better to stay available but lose some crucial guarantees that cannot be enforced, or to play it safe and refuse clients when these types of failures occur.
+Также некотрые виды отказов в распределенных системах делают сложным написание распределенных систем которые будут работать как единая. Сетевые задержки и разделение сети(исчезновение сети между узлами) означает что система должна делать сложный выбор между тем чтобы остаться доступной и потерять некотрые гарантии корректности либо отказатся от обслуживание клиентов сохраняя корректность работы во время сетевых сбоев.
 
-The CAP theorem - which I will discuss in the next chapter - captures some of these tensions. In the end, the ideal system meets both programmer needs (clean semantics) and business needs (availability/consistency/latency).
+CAP теорема - о которой будет вестись речь в следующей главе - говорит об этих противоречиях. Подведем итог - идеальная система будет отвечать как потребностям программиста(будет иметь простую и чистую семантику) так и бизнесс нуждам (доступность/корректность/низкие задержки обработки).
 
-## Design techniques: partition and replicate
+## Методы проектирования: партиционирование и репликация
 
-The manner in which a data set is distributed between multiple nodes is very important. In order for any computation to happen, we need to locate the data and then act on it.
+Способ которым данные распределяются по узлам крайне важем. Любое вычисление сначала предпологает получение данных(то есть нахождение их на конкретном узле системы) и только потом выполнение с ними определенных операций.
 
-There are two basic techniques that can be applied to a data set. It can be split over multiple nodes (partitioning) to allow for more parallel processing. It can also be copied or cached on different nodes to reduce the distance between the client and the server and for greater fault tolerance (replication).
+Существует два базовых метода которые могут быть применены для разделения всего набора данных. Это может быть разделение данных между несколькими узлами(партиционирование) для обеспечения их паралельной обработки. Либо можно скопировать(или закешировать) одни и теже данные на разных узлах для уменьшения дистанции между клиентом и сервером и для повышения отказоустойчивости.
 
-> Divide and conquer - I mean, partition and replicate.
+> Разделяй и властвуй - то есть партиционируй и реплицируй.
 
-The picture below illustrates the difference between these two: partitioned data (A and B below) is divided into independent sets, while replicated data (C below) is copied to multiple locations.
+Данная картинка иллюстрирует разницу между этими двумя методиками: партиционированные данные (A и B) разделены на независимые наборы данных, в то время как реплицированные данные представляют собой копию одного и тогоже набора данных в разных местах.
 
 ![Partition and replicate](images/part-repl.png)
 
-This is the one-two punch for solving any problem where distributed computing plays a role. Of course, the trick is in picking the right technique for your concrete implementation; there are many algorithms that implement replication and partitioning, each with different limitations and advantages which need to be assessed against your design objectives.
+Это двух-звенное решение любой проблемы связанных с распределенными вычислениями. Конечно трудность в том что существует множество алгоритмов партиционирования и репликации; каждый имеет свои приемущества и ограничения, которые должны учитыватся относительно целей вашего проектирования.
 
-### Partitioning
+### Партиционирование
 
-Partitioning is dividing the dataset into smaller distinct independent sets; this is used to reduce the impact of dataset growth since each partition is a subset of the data.
+Партиционирование разделяет набор данных на меньшие независимые части - для того чтобы сократить влияние роста общего количества данных.
 
-- Partitioning improves performance by limiting the amount of data to be examined and by locating related data in the same partition
-- Partitioning improves availability by allowing partitions to fail independently, increasing the number of nodes that need to fail before availability is sacrificed
+- Партиционирование улучшает производительность за счет ограничения количества рассматриваемых данных и размещения связанных между собой данных в одном и том же разделе
+- Партиционирование улучшает доступность так как разные партиции независимы и отказ одной не затрагивает другую, увеличивается число узлов которые должны отказать для того чтобы система стала полностью не доступна
 
-Partitioning is also very much application-specific, so it is hard to say much about it without knowing the specifics. That's why the focus is on replication in most texts, including this one.
+Партиционирование также весьма специфично для каждого приложения, поэтому трудно много сказать о нем не зная специфики конкретной системы. Поэтому большая часть текстов(включая этот) больше внимания уделяет репликация.
 
-Partitioning is mostly about defining your partitions based on what you think the primary access pattern will be, and dealing with the limitations that come from having independent partitions (e.g. inefficient access across partitions, different rate of growth etc.).
+Партиционирование в большей степени это то как вы разделяете свои данные, какой у вас основой паттерн доступа к данным и борьба с ограничениями разделения данных (таких как неэффективный доступ между разделами, разная скорость роста разных разделов и.т.д).
 
-### Replication
+### Репликация
 
-Replication is making copies of the same data on multiple machines; this allows more servers to take part in the computation.
+Репликация это создание копии одних и тех же данных на разных машинах; это позволяет многим серверами принимать участие в вычислениях.
 
-Let me inaccurately quote [Homer J. Simpson](http://en.wikipedia.org/wiki/Homer_vs._the_Eighteenth_Amendment):
+Позвольте мне неточную цитату [Homer J. Simpson](http://en.wikipedia.org/wiki/Homer_vs._the_Eighteenth_Amendment):
 
-> To replication! The cause of, and solution to all of life's problems.
+> Копирование! Причина и решение всех жизненых проблем.
 
-Replication - copying or reproducing something - is the primary way in which we can fight latency.
+Репликация - копирование или перевоспроизведение чего-либо - основной способ борьбы с задержками.
 
-- Replication improves performance by making additional computing power and bandwidth applicable to a new copy of the data
-- Replication improves availability by creating additional copies of the data, increasing the number of nodes that need to fail before availability is sacrificed
+- Репликация улучшает производительность добавляя вычислительные мощности и пропускную способность с каждой новой копией данных
+- Репликация улучшает доступность путем создания дополнительных копий данных, увеличивая число узлов которые должны выйти из строя прежде чем система окажется недоступна
 
-Replication is about providing extra bandwidth, and caching where it counts. It is also about maintaining consistency in some way according to some consistency model.
+Основной целью репликации является увеличение пропускной способности и кеширование там где оно необходимо. Также необходимо сохранять согласованость в соотвествии с некотрой выбранной моделью согласованности.
 
-Replication allows us to achieve scalability, performance and fault tolerance. Afraid of loss of availability or reduced performance? Replicate the data to avoid a bottleneck or single point of failure. Slow computation? Replicate the computation on multiple systems. Slow I/O? Replicate the data to a local cache to reduce latency or onto multiple machines to increase throughput.
+Репликация позволяет добится масштабируемости, производительности и отказоустойчивости. Боитесь потерять доступность системы или сократить производительность? Реплицируйте данные для избежания "бутылочного горлышка" системы и единой точки отказа. Медленные вычисления? Реплицируйте вычисления на несколько систем. Медленный I/O? Реплицируйте данные в локальный кеш или на несколько машин для увеличения пропускной способности.
 
-Replication is also the source of many of the problems, since there are now independent copies of the data that has to be kept in sync on multiple machines - this means ensuring that the replication follows a consistency model.
+Но репликация является также источником многих проблем, так как данные на разных машинах должны быть синхронизированны - это должно обеспечиватся некотрой моделью согласованности.
 
-The choice of a consistency model is crucial: a good consistency model provides clean semantics for programmers (in other words, the properties it guarantees are easy to reason about) and meets business/design goals such as high availability or strong consistency.
+Выбор модели согласоваанности имеет решаюшее значение: хорошая модель предоставляет чистую семантику для программиста(другими словами о ней легко думать и ее легко анализировать) и идет на встречу бизнесс целям такми как высокая доступность или строгая согласованность.
 
-Only one consistency model for replication - strong consistency - allows you to program as-if the underlying data was not replicated. Other consistency models expose some internals of the replication to the programmer. However, weaker consistency models can provide lower latency and higher availability - and are not necessarily harder to understand, just different.
+Только одная модель согласованности для репликации - строгая согласованность - позволяет программировать как если бы исходные данные не были реплицированны. Другие модели согласованности раскрывают больше деталей своего внутреннего устройства для программиста. Тем не менее модели слабой согласованности предоставляют низкое время задержки и высокую доступность - и их не обязательно они труднее для понимания.
 
 ---
 
-## Further reading
+## Для дальнейшего чтения
 
 - [The Datacenter as a Computer - An Introduction to the Design of Warehouse-Scale Machines](http://www.morganclaypool.com/doi/pdf/10.2200/s00193ed1v01y200905cac006) - Barroso &  Hölzle, 2008
 - [Fallacies of Distributed Computing](http://en.wikipedia.org/wiki/Fallacies_of_Distributed_Computing)
