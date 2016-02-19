@@ -1,304 +1,304 @@
-# %chapter_number%. Replication: weak consistency model protocols
+# %chapter_number%. Репликация: протоколы обеспечивающие слабую согласованность
 
-Now that we've taken a look at protocols that can enforce single-copy consistency under an increasingly realistic set of supported failure cases, let's turn our attention at the world of options that opens up once we let go of the requirement of single-copy consistency.
+Сейчас, после того как мы расмотрели протоколы которые обеспечивают последовательную согласованность с учетом возрастающего количества обрабатываемых типов отказов, давайте вернемся к пространству возможных опций, которое открывается если мы откажемся от требования последовательной согласованности(без расхождений).
 
-By and large, it is hard to come up with a single dimension that defines or characterizes the protocols that allow for replicas to diverge. Most such protocols are highly available, and the key issue is more whether or not the end users find the guarantees, abstractions and APIs useful for their purpose in spite of the fact that the replicas may diverge when node and/or network failures occur.
+В общем и целом, трудно придумать одно измерение которое будет определять или характиризовать протоколы позволяющие репликам расходится. Большинство таких протоколов обеспечивают высокую доступность и ключевой проблемой является смогут ли конечные пользователи найти гарантии, абстракции, API полезные для их нужд, несмотря на то что реплики могут расходится, когда отказывают узлы или рвется сеть.
 
-Why haven't weakly consistent systems been more popular?
+Почему слабо согласованные системы менее популярны?
 
-As I stated in the introduction, I think that much of distributed programming is about dealing with the implications of two consequences of distribution:
+Как я говорил в введении, я думаю что многое в распределенном программировании следует из двух последствий распределенности:
 
-- that information travels at the speed of light
-- that independent things fail independently
+- информация путешествует со скоростью света
+- независимые вещи отказывают независимо
 
-The implication that follows from the limitation on the speed at which information travels is that nodes experience the world in different, unique ways. Computation on a single node is easy, because everything happens in a predictable global total order. Computation on a distributed system is difficult, because there is no global total order.
+Следствием того что скорость распространения информации ограничена, является то что каждый узел воспринимает окружающий мир по-своему. Вычисления на одному узле просты, так как все случается в определенном глобальном и абсолютном порядке. Вычисления на распределенной системе сложны, так как глобального  и абсолютного порядка нет.
 
-For the longest while (e.g. decades of research), we've solved this problem by introducing a global total order. I've discussed the many methods for achieving strong consistency by creating order (in a fault-tolerant manner) where there is no naturally occurring total order.
+Долгое время (десятилетия исследований), мы решали эту проблему введение глобального порядка. Мы обсудили много методов достигающий последовательной согласованности путем создания порядка(с учетом устойчивости к отказам) когда естественного порядка не было.
 
-Of course, the problem is that enforcing order is expensive. This breaks down in particular with large scale internet systems, where a system needs to remain available. A system enforcing strong consistency doesn't behave like a distributed system: it behaves like a single system, which is bad for availability during a partition.
+Конечно, проблема в том что создание порядка крайне затратно. Это зачастую просто невозможно в больших системах работающих в интернете, когда система должна оставатся доступна. Система соблюдающая строгую согласованность ведет себя не как распределенная: она ведет себя как единая система, что плохо для доступности во время разделений.
 
-Furthermore, for each operation, often a majority of the nodes must be contacted - and often not just once, but twice (as you saw in the discussion on 2PC). This is particularly painful in systems that need to be geographically distributed to provide adequate performance for a global user base.
+Кроме того, для каждой операции зачастую большинству узлов необходимо связатся друг с другом - и зачастую не один раз, а дважды(вспомним обсуждение 2PC). Это обычно крайне болезнено для систем которые нуждаются в географической распределенности для обеспечения адекватной производительности для пользователей в разных частях мира.
 
-So behaving like a single system by default is perhaps not desirable.
+Так что поведение системы по умолчанию как единого целого возможно не желательно.
 
-Perhaps what we want is a system where we can write code that doesn't use expensive coordination, and yet returns a "usable" value. Instead of having a single truth, we will allow different replicas to diverge from each other - both to keep things efficient but also to tolerate partitions - and then try to find a way to deal with the divergence in some manner.
+Возможно то что мы хотим, это система для которой мы можем писать код без больших затрат на координаци но при это продолжать получать пригодные для наших целей результаты. В замен единственно-верной версии данных, мы принимаем разные реплики с расхождениями между друг другом - это позволит сохранить эффективность и сохранить устойчивость к разделению - и затем мы попробуем найти способ справится с расхождениями каким либо образом.
 
-Eventual consistency expresses this idea: that nodes can for some time diverge from each other, but that eventually they will agree on the value.
+Согласованность в конечном итоге выражается в следующей идее: узлы которые могут иногда расходится в конечном итоге прийдут к согласию насчет единого значения.
 
-Within the set of systems providing eventual consistency, there are two types of system designs:
+Во всем множестве систем предоставляющем согласованность в конечном итоге, можно выделить два типа архитектур:
 
-*Eventual consistency with probabilistic guarantees*. This type of system can detect conflicting writes at some later point, but does not guarantee that the results are equivalent to some correct sequential execution. In other words, conflicting updates will sometimes result in overwriting a newer value with an older one and some anomalies can be expected to occur during normal operation (or during partitions).
+*Согласованность в конечном итоге с вероятностными гарантиями*. Этот тип систем может определять конфликты на каком то этапе после их появления, но не дает гарантий что результаты будут эквивалентны результатам корректного порядка исполнения операций. Другими словами, конфликтующие обновления иногда будут перезаписывать новые значения старыми и некотрые аномалии могут проявлятся во время нормального проведения операций(или во время разделения).
 
-In recent years, the most influential system design offering single-copy consistency is Amazon's Dynamo, which I will discuss as an example of a system that offers eventual consistency with probabilistic guarantees.
+В недавние годы,наиболее известная система жертвующая согласованностью на уровне одной копии это Amazon Dynamo, которую я буду обсуждать в качестве системы которая предалагает согласованность в конечном итоге с вероятностными гарантиями.
 
-*Eventual consistency with strong guarantees*. This type of system guarantees that the results converge to a common value equivalent to some correct sequential execution. In other words, such systems do not produce in anomalous results; without any coordination you can build replicas of the same service, and those replicas can communicate in any pattern and receive the updates in any order, and they will eventually agree on the end result as long as they all see the same information.
+*Согласованность в конечном итоге со строгими гарантиями*. Этот тип систем гарантирует что результат будет сходится к одному значению эквивалентному полученному при корректной последовательности операций. Другими словами, такие системы не приводят к аномальным результатам; без какой либо координации вы можете создавать реплики сервисов, которые будут коммуницировать любым способом и получать обновления в любом порядке и в конечном итоге они достигнут согласия насчет конечного результата на все время пока они будут видеть одну и туже информацию.
 
-CRDT's (convergent replicated data types) are data types that guarantee convergence to the same value in spite of network delays, partitions and message reordering. They are provably convergent, but the data types that can be implemented as CRDT's are limited.
+CRDT (сходяющиеся рпелицирующиеся типы данных) это типы данных гарантирующие сходимость к одному и тому же значению несмотря на разделы и задержки в сети и изменение порядка сообщений. Они доказанно сходимы, но ограничены типами данных которые могут быть реализованы как CRDT.
 
-The CALM (consistency as logical monotonicity) conjecture is an alternative expression of the same principle: it equates logical monotonicity with convergence. If we can conclude that something is logically monotonic, then it is also safe to run without coordination. Confluence analysis - in particular, as applied for the Bloom programming language - can be used to guide programmer decisions about when and where to use the coordination techniques from strongly consistent systems and when it is safe to execute without coordination.
+CALM (согласованность как логическая монотонность) гипотеза это альтернативное выражение тех же самых принципов: это уравнивание логической монотонности и сходимости. Если мы можем сделать вывод что чтолибо логически монотонно, тогда мы также можем безопастно запускать это без какой либо координации. Анализ слияний - в частности, применительно к языку программирования Bloom - может быть применен для принятия решений в программировании о том когда и где  использовать координационные техники из строго согласованной системы и когда можно безопастно выполнять операции не пребегая к вычислительно "дорогой" координации.
 
-## Reconciling different operation orders
+## Согласование разного порядка операций
 
-What does a system that does not enforce single-copy consistency look like?  Let's try to make this more concrete by looking a few examples.
+Что делает систему не поддерживающей согласованность единной копии? Давайте попробуем сделать более конкретные выводы из нескольких примеров.
 
-Perhaps the most obvious characteristic of systems that do not enforce single-copy consistency is that they allow replicas to diverge from each other. This means that there is no strictly defined pattern of communication: replicas can be separated from each other and yet continue to be available and accept writes.
+Конечно наиболее очевидной характеристикой систем которые не обспечивают согласованности одной копии является, то что они позволяют репликам расходится относительно друг друга. Это означает что нет строгой коммуникации: реплики могут быть отделены друг от друга и даже продолжать быть доступны и записывать данные.
 
-Let's imagine a system of three replicas, each of which is partitioned from the others. For example, the replicas might be in different datacenters and for some reason unable to communicate. Each replica remains available during the partition, accepting both reads and writes from some set of clients:
+Давайте представим систему из трех реплики, каждая из которых отделена от других. Для примера реплика может быть в другом датацентре или отделена по другим причинам. Каждая реплика остается доступной во время разделения для записи и чтения для некотрого набора клиентов:
 
-    [Clients]   - > [A]
+    [Клиенты]   - > [A]
 
-    --- Partition ---
+    --- Раздел ---
 
-    [Clients]   - > [B]
+    [Клиенты]   - > [B]
 
-    --- Partition ---
+    --- Раздел ---
 
-    [Clients]   - > [C]
+    [Клиенты]   - > [C]
 
-After some time, the partitions heal and the replica servers exchange information. They have received different updates from different clients and have diverged each other, so some sort of reconciliation needs to take place. What we would like to happen is that all of the replicas converge to the same result.
+После некотрого времени, разделение исчезает и реплики начинают обменниваться информацией. Они получают  различные обновления от разных клиентов что приводит к расхождениям - следовательно необходим некотрый способ согласования. Нам бы хотелось бы чтобы все реплики после этого сошлись к одному результату.
 
     [A] \
-        --> [merge]
+        --> [мерж]
     [B] /     |
               |
-    [C] ----[merge]---> result
+    [C] ----[мерж]---> результат
 
 
-Another way to think about systems with weak consistency guarantees is to imagine a set of clients sending messages to two in some order. Because there is no coordination protocol that enforces a single total order, the messages can get delivered in different orders at the two replicas:
+Другой путь размышлять о системах с гарантиями слабой согласованности это представить множество клиентов отсылающих сообщения на узла в некотром порядке. Так как у нас нет координационного протокола чтобы обеспечить глобальный единый порядок, сообщения могут быть доставлены в разном порядке на разные реплики:
 
-    [Clients]  --> [A]  1, 2, 3
-    [Clients]  --> [B]  2, 3, 1
+    [Клиенты]  --> [A]  1, 2, 3
+    [Клиенты]  --> [B]  2, 3, 1
 
-This is, in essence, the reason why we need coordination protocols. For example, assume that we are trying to concatenate a string and the operations in messages 1, 2 and 3 are:
+Это в сущности причина по которой мы нуждаемся в протоколах координации. Для примера, предположим что мы пытаемся склеить строку за 3 операции:
 
-    1: { operation: concat('Hello ') }
-    2: { operation: concat('World') }
-    3: { operation: concat('!') }
+    1: { операция: concat('Hello ') }
+    2: { операция: concat('World') }
+    3: { операция: concat('!') }
 
-Then, without coordination, A will produce "Hello World!", and B will produce "World!Hello ".
+Тогда, без координации A получит "Hello World!", а B "World!Hello ".
 
     A: concat(concat(concat('', 'Hello '), 'World'), '!') = 'Hello World!'
     B: concat(concat(concat('', 'World'), '!'), 'Hello ') = 'World!Hello '
 
 
-This is, of course, incorrect. Again, what we'd like to happen is that the replicas converge to the same result.
+Это конечно же некорректно. Опять же, нам бы хотелось чтобы реплики сходились к одному результату.
 
-Keeping these two examples in mind, let's look at Amazon's Dynamo first to establish a baseline, and then discuss a number of novel approaches to building systems with weak consistency guarantees, such as CRDT's and the CALM theorem.
+Держа в уме оба этих примера, давайте взглянем на Amazon's Dynamo в первую очередь чтобы определить базовый уровень и затем обсудим ряд концепций для построения систем со слабой консистентностью, таких как CRDT the CALM теорема.
 
 
 ## Amazon's Dynamo
 
-Amazon's Dynamo system design (2007) is probably the best-known system that offers weak consistency guarantees but high availability. It is the basis for many other real world systems, including LinkedIn's Voldemort, Facebook's Cassandra and Basho's Riak.
+Архитектура Amazon's Dynamo (2007) это возможно наиболее известный пример системы представляющей слабые гарантии согласованности и являющейся высоко-доступной системой. Это основа для многих промышленных систем таких как LinkedIn's Voldemort, Facebook's Cassandra и Basho's Riak.
 
-Dynamo is an eventually consistent, highly available key-value store. A key value store is like a large hash table: a client can set values via `set(key, value)` and retrieve them by key using `get(key)`. A Dynamo cluster consists of N peer nodes; each node has a set of keys which is it responsible for storing.
+Dynamo это ключ-значение хранилище обеспечивающее согласованность в конечном итоге и высокую доступность. Ключ-значение хранилище напоминает огромную хеш-таблицу: клиент может установить некоторое значение по ключу используя `set(key, value)` и получить некоторое значение по ключу используя `get(key)`. Dynamo кластер содержит N частей узлов; каждый узел отвечает за определенный набор ключей.
 
-Dynamo prioritizes availability over consistency; it does not guarantee single-copy consistency. Instead, replicas may diverge from each other when values are written; when a key is read, there is a read reconciliation phase that attempts to reconcile differences between replicas before returning the value back to the client.
+Dynamo разработана с приоритетом доступности над согласованностью; согласованность на уровне одной активной копии не гарантируется. Реплики могут расходится относительно друг друга когда значения записываются; во время чтения по ключу, происходит фаза согласования во время которой различия разных реплик обьединяются перед тем как возвратить результат клиенту.
 
-For many features on Amazon, it is more important to avoid outages than it is to ensure that data is perfectly consistent, as an outage can lead to lost business and a loss of credibility. Furthermore, if the data is not particularly important, then a weakly consistent system can provide better performance and higher availability at a lower cost than a traditional RDBMS.
+Для многих отраслей бизнесса Amazon, более важно избегать простоев нежели держать данные в полной консистентности, так как отключение может привести к бизнесс-потерям и утрате доверия клиентов. Более того, если данные не особо важные, тогда системы с слабой согласованностью могут предоставлять лучшую производительность и более высокую доступность с более низкими затратами нежели традиционные RDBMS.
 
-Since Dynamo is a complete system design, there are many different parts to look at beyond the core replication task. The diagram below illustrates some of the tasks; notably, how a write is routed to a node and written to multiple replicas.
+Dynamo это полная архитектура системы, в которой необходимо расмотреть много различных частей некоторые из которых выходят за рамки задачи репликации; особенно, как запись диспатчеризируется между узлами и как происходит запись на несколько узлов.
 
-    [ Client ]
+    [ Клиент ]
         |
-    ( Mapping keys to nodes )
+    ( Отображение ключей в узлы )
         |
         V
-    [ Node A ]
+    [ Узел A ]
         |     \
-    ( Synchronous replication task: minimum durability )
+    ( Синхронная часть репликации: минимум надежности )
         |        \
-    [ Node B]  [ Node C ]
+    [ Узел B]  [ Узел C ]
         A
         |
-    ( Conflict detection; asynchronous replication task:
-      ensuring that partitioned / recovered nodes recover )
+    ( Определение конфликта; асинхронная часть репликации:
+      обеспечивает востановление разделенных / упавших узлов )
         |
         V
-    [ Node D]
+    [ Узел D]
 
-After looking at how a write is initially accepted, we'll look at how conflicts are detected, as well as the asynchronous replica synchronization task. This task is needed because of the high availability design, in which nodes may be temporarily unavailable (down or partitioned). The replica synchronization task ensures that nodes can catch up fairly rapidly even after a failure.
+После того как мы взглянем как запись принимается после иницирования клиентов, мы посмотрим как обнаруживаются конфликты и на асинхронную часть репликации. Это часть необходима, из-за дизайна высоко-доступных решений, в которых узлы могут быть временно недоступны(изза отказа или разделения). Синхронизация реплик обеспечивает довольно быстрое приведение реплики к актуальному состоянию даже после отказа.
 
-### Consistent hashing
+### Согласованное хэширование(Consistent hashing)
 
-Whether we are reading or writing, the first thing that needs to happen is that we need to locate where the data should live on the system. This requires some type of key-to-node mapping.
+Записываем мы или читаем, первое что должно произойти мы должны определить где данные должны находится в системе. Это требует некотрого отображение ключей в узлы на которых они хранятся.
 
-In Dynamo, keys are mapped to nodes using a hashing technique known as [consistent hashing](https://github.com/mixu/vnodehash) (which I will not discuss in detail). The main idea is that a key can be mapped to a set of nodes responsible for it by a simple calculation on the client. This means that a client can locate keys without having to query the system for the location of each key; this saves system resources as hashing is generally faster than performing a remote procedure call.
+В Dynamo, ключи отображаются в узлы используя технику хеширования известную как [согласованное хеширование](https://github.com/mixu/vnodehash) (которое я не буду обсуждать детально). Главная идея это что ключи могут быть отображены в набор узлов при помощи простых вычислений на клиенте. Это значит что клиент может обнаружить ключи без запроса к системе для определения расположения ключа; это экономит системные ресурсы так как хеширование во много раз быстрее чем вызов удаленной процедуры.
 
-### Partial quorums
+### Частичный кворум
 
-Once we know where a key should be stored, we need to do some work to persist the value. This is a synchronous task; the reason why we will immediately write the value onto multiple nodes is to provide a higher level of durability (e.g. protection from the immediate failure of a node).
+После того как мы разобрались как ключ должен хранится, мы должны понять как хранится значение. Это синхронная задача; причина по которой нам надо записывать немедленно значение на несколько узлов это предоставление высокого уровня надежности (например для защиты от немедленного отказа узла).
 
-Just like Paxos or Raft, Dynamo uses quorums for replication. However, Dynamo's quorums are sloppy (partial) quorums rather than strict (majority) quorums.
+Так же как и Paxos или Raft, Dynamo использует кворумы для репликации. Однако Dynamo кворумы нестрогие(основанные только на часте узлов) в отличии от строгих(основанных на большинстве) кворумов.
 
-Informally, a strict quorum system is a quorum system with the property that any two quorums (sets) in the quorum system overlap. Requiring a majority to vote for an update before accepting it guarantees that only a single history is admitted since each majority quorum must overlap in at least one node. This was the property that Paxos, for example, relied on.
+Неформально, строгие системы кворумов это системы кворумов с таким свойством что любые два кворума в системе пересекаются. Требование большинства голосов для обновления перед его принятием гарантирует что только одна версия истории изменений будет признаной для каждого мажоритарного кворума так как каждый такой кворум будет пересекатся с другим хотя бы в одном узле. На это свойство опирается к примеру Paxos.
 
-Partial quorums do not have that property; what this means is that a majority is not required and that different subsets of the quorum may contain different versions of the same data. The user can choose the number of nodes to write to and read from:
+Частичный кворум не удовлетворяет этому свойству; это означает что большинство не требуется и различные подмножества кворума могут содержать различные версии одних и тех же данных. Юзер может выбирать число узлов для записи и чтения:
 
-- the user can choose some number W-of-N nodes required for a write to succeed; and
-- the user can specify the number of nodes (R-of-N) to be contacted during a read.
+- пользователь может выбрать некотрое число W-из-N узлов требуемое для того чтобы запись была успешна; и
+- пользователь может определить число узлов (R-из-N) которым необходимо контактировать при чтении.
 
-`W` and `R` specify the number of nodes that need to be involved to a write or a read. Writing to more nodes makes writes slightly slower but increases the probability that the value is not lost; reading from more nodes increases the probability that the value read is up to date.
+`W` и `R` определяет число узлов которые должны быть вовлечены в процесс записи и чтения. Запись с использованием большего числа узлов будет более медленной но повысит вероятность того что значение не будет потеряно; чтение с большего числа узлов повышает вероятность того что прочитанное значение будет актуально.
 
-The usual recommendation is that `R + W > N`, because this means that the read and write quorums overlap in one node - making it less likely that a stale value is returned. A typical configuration is `N = 3` (e.g. a total of three replicas for each value); this means that the user can choose between:
+Типичная рекомендация это `R + W > N`, потому что это означает что кворумы для чтения и записи пересекаются хотя бы в одном узле - что делает менее вероятным что устаревшее значение будет прочитано. Обычная конфигурация это `N = 3` (то есть всего 3 рпелики для каждого значения); это означает что юзер может выбирать между:
 
      R = 1, W = 3;
-     R = 2, W = 2 or
+     R = 2, W = 2 или
      R = 3, W = 1
 
-More generally, again assuming `R + W > N`:
+В более общем плане `R + W > N`:
 
-- `R = 1`, `W = N`: fast reads, slow writes
-- `R = N`, `W = 1`: fast writes, slow reads
-- `R = N/2` and `W = N/2 + 1`: favorable to both
+- `R = 1`, `W = N`: быстрое чтение, медленная запись
+- `R = N`, `W = 1`: быстрая запись, медленное чтение
+- `R = N/2` and `W = N/2 + 1`: хорошо и для того и для того
 
-N is rarely more than 3, because keeping that many copies of large amounts of data around gets expensive!
+N редко больше 3, так как хранение большого числа копий может быть дорогостояще для большого количества данных!
 
-As I mentioned earlier, the Dynamo paper has inspired many other similar designs. They all use the same partial quorum based replication approach, but with different defaults for N, W and R:
+Как я упомянал ранее, публикация Dynamo  вдохновила многие подобные системы. Они все используют репликацию на основе частичных кворумов, но с другими N, W и R по умолчанию:
 
-- Basho's Riak (N = 3, R = 2, W = 2 default)
-- Linkedin's Voldemort (N = 2 or 3, R = 1, W = 1 default)
-- Apache's Cassandra (N = 3, R = 1, W = 1 default)
+- Basho's Riak (N = 3, R = 2, W = 2 по умолчанию)
+- Linkedin's Voldemort (N = 2 or 3, R = 1, W = 1)
+- Apache's Cassandra (N = 3, R = 1, W = 1)
 
-There is another detail: when sending a read or write request, are all N nodes asked to respond (Riak), or only a number of nodes that meets the minimum (e.g. R or W; Voldemort). The "send-to-all" approach is faster and less sensitive to latency (since it only waits for the fastest R or W nodes of N) but also less efficient, while the "send-to-minimum" approach is more sensitive to latency (since latency communicating with a single node will delay the operation) but also more efficient (fewer messages / connections overall).
+Так же есть другой ньюанс: когда отправляется запрос на запись или чтение, все N узлов опрашиваются (Riak), или только некоторое число узлов - минимальный кворум (то есть R или W; Voldemort). Отправка всем более быстра и менее чувствительна к задержкам(так как можно ждать ответ только R или W узлов из N) но менее эффективен, Отправка запроса только минимуму узлов более чувствительна к задержкам(так как задержка в общении с одним узлом приведет к задержке всей операции) но более эффективно (меньше сообщений / соединений в целом)
 
-What happens when the read and write quorums overlap, e.g. (`R + W > N`)? Specifically, it is often claimed that this results in "strong consistency".
+Что случится когда кворумы записи и чтения перекрываются то есть (`R + W > N`)? В частности, зачастую говорят что в  результате мы получим "строгую согласованность".
 
-### Is R + W > N the same as "strong consistency"?
+### R + W > N это тоже самое что и "строгая согласованность"?
 
-No.
+Нет.
 
-It's not completely off base: a system where `R + W > N` can detect read/write conflicts, since any read quorum and any write quorum share a member. E.g. at least one node is in both quorums:
+Для этого нет оснований: система где `R + W > N` может определять конфликты записи и чтения, так как кворумы для записи и чтения пересекаются. Например хотя бы один узел будет обоих кворумах:
 
        1     2   N/2+1     N/2+2    N
       [...] [R]  [R + W]   [W]    [...]
 
-This guarantees that a previous write will be seen by a subsequent read. However, this only holds if the nodes in N never change. Hence, Dynamo doesn't qualify, because in Dynamo the cluster membership can change if nodes fail.
+Это гарантирует что предыдущая запись будет видна для последующих чтений. Однако, это так только если число узлов N никогда не будет менятся. Следовательно, Dynamo не сдерживает этих гарантий, потому что в Dynamo кластер может быть изменен если узлы откажут.
 
-Dynamo is designed to be always writable. It has a mechanism which handles node failures by adding a different, unrelated server into the set of nodes responsible for certain keys when the original server is down. This means that the quorums are no longer guaranteed to always overlap. Even `R = W = N` would not qualify, since while the quorum sizes are equal to N, the nodes in those quorums can change during a failure. Concretely, during a partition, if a sufficient number of nodes cannot be reached, Dynamo will add new nodes to the quorum from unrelated but accessible nodes.
+Dynamo разработана чтобы быть всегда доступной для записи. Она содержит который обрабатывает отказ узлов путем добавления другого не связанного сервера в набор узлов отвественных за хранение определенных ключей пока другой узел не работает. Это означает что кворум не гарантирует пересечений всегда. Даже `R = W = N` не будет этого гарантировать, так как пока размер кворума N узлы в кворуме могут менятся изза отказов. В частности, во время раздела, если достаточное число узлов не может быть достигнуто, Dynamo будет добавлять новые узлы из несвязанных с исходными но доступных узлов.
 
-Furthermore, Dynamo doesn't handle partitions in the manner that a system enforcing a strong consistency model would: namely, writes are allowed on both sides of a partition, which means that for at least some time the system does not act as a single copy. So calling `R + W > N` "strongly consistent" is misleading; the guarantees merely probabilistic - which is not what strong consistency refers to.
+Кроме того, Dynamo не обрабатывает разделы так же как система с строгой согласованностью, а именно: она позволяет записывать данные по обе стороны раздела сети, это означает что система не действует так как если бы она не была распределенной. Поэтому называть `R + W > N` "строго согласованным" ошибочно; гарантии только лишь вероятностные - что не подходит для строго согласованной системы.
 
-### Conflict detection and read repair
+### Определение конфликтов и чтение исправленых записей
 
-Systems that allow replicas to diverge must have a way to eventually reconcile two different values. As briefly mentioned during the partial quorum approach, one way to do this is to detect conflicts at read time, and then apply some conflict resolution method. But how is this done?
+Системы которые которые позволяют репликам расходится должны иметь способ в конечном итоге согласовать два различных значения. Как кратко упоминалось в ходе обсуждения подходов основанных на частичном кворуме, один из способов это использовать определение конфликтов во время чтения а затем применить какой-либо алгоритм разрешения конфликтов. Но как это сделать?
 
-In general, this is done by tracking the causal history of a piece of data by supplementing it with some metadata. Clients must keep the metadata information when they read data from the system, and must return back the metadata value when writing to the database.
+В общем случае, Iэто можно сделать путем отслеживание причинноследственных связей между кусочками данных через сохранненые в них метаданные. Клиенты должны получить метаданные когда они читают данные из системы и они должны вернуть назад значение метаданных когда они записывают данные в базу данных.
 
-We've already encountered a method for doing this: vector clocks can be used to represent the history of a value. Indeed, this is what the original Dynamo design uses for detecting conflicts.
+Мы уже встречались с методом который делает это: векторные часы могут быть использованы для представления истории некотрого значения. В самом деле, именно их использует оригинальная архитектура Dynamo для определения конфликтов.
 
-However, using vector clocks is not the only alternative. If you look at many practical system designs, you can deduce quite a bit about how they work by looking at the metadata that they track.
+Однако, использование векторные часы не единственная альтернатива. Если взглянуть на архитектуру многих промышленных систем, можно понять немного о том как они работают глядя на метаданные которые они отслеживают.
 
-*No metadata*. When a system does not track metadata, and only returns the value (e.g. via a client API), it cannot really do anything special about concurrent writes. A common rule is that the last writer wins: in other words, if two writers are writing at the same time, only the value from the slowest writer is kept around.
+*Без метаданных*. Когда система не отслеживает метаданные, и всегда возвращает только значение(с помощью клиентского API), у нее нет возможности как либо специально обрабатывать конкурентные записи. Общее правило в таких системах "last writer wins": другими словами, если два записывающих клиента пишут в одно и тоже время, только значение от более медленного клиента будут сохранятся.
 
-*Timestamps*. Nominally, the value with the higher timestamp value wins. However, if time is not carefully synchronized, many odd things can happen where old data from a system with a faulty or fast clock overwrites newer values. Facebook's Cassandra is a Dynamo variant that uses timestamps instead of vector clocks.
+*Временные метки*.  Формально, значение с более поздней временной меткой "выигрывает". Однако, если время не синхронизированно точно могут происходить многие странные случаи когда новое значение(из части системы с отстающим временем) будет затерто более старым. Facebook Cassandra это реализация архитектуры Dynamo которая использует временные метки вместо векторных часов.
 
-*Version numbers*. Version numbers may avoid some of the issues related with using timestamps. Note that the smallest mechanism that can accurately track causality when multiple histories are possible are vector clocks, not version numbers.
+*Номера версий*. Номера версий могут помочь избежать могих проблем использования временных меток. Однако для отслеживания нескольких причинно-следственных связей недостаточно номеров версий и необходимы векторные часы.
 
-*Vector clocks*. Using vector clocks, concurrent and out of date updates can be detected. Performing read repair then becomes possible, though in some cases (concurrent changes) we need to ask the client to pick a value. This is because if the changes are concurrent and we know nothing more about the data (as is the case with a simple key-value store), then it is better to ask than to discard data arbitrarily.
+*Векторные часы*. Используя векторные часы,  конкурентные и устаревшие обновления могут быть обнаружены. Выполнение исправления при чтении также становится возможным, хотя в некотрых случаях(конкурентные изменения) необходимо спрашивать у клиента значение. Это так потому что если изменения паралельные и мы не знаем ничего больше о данных(как в нашем случае когда мы работаем с хранилищем ключ-значение), тогда лучшей политикой будет спросить нежели отбросить данные произвольно.
 
-When reading a value, the client contacts `R` of `N` nodes and asks them for the latest value for a key. It takes all the responses, discards the values that are strictly older (using the vector clock value to detect this). If there is only one unique vector clock + value pair, it returns that. If there are multiple vector clock + value pairs that have been edited concurrently (e.g. are not comparable), then all of those values are returned.
+Когда происходит чтение значения, клиент контактирует с `R` из `N` узлов и опрашивает их о последнем значении для ключа. Далее берет все их ответы и отбрасывает значения которые строго более старые(для этого используются векторные часы). Если остается только одна уникальная пара векторные часы + значение, тогда возвращается она. Если остается несколько таких пар(которые редактировались конкурентно), тогда возвращаются все они.
 
-As is obvious from the above, read repair may return multiple values. This means that the client / application developer must occasionally handle these cases by picking a value based on some use-case specific criterion.
+Из этого очевидно что чтение исправленных записей может возврашать множество значений. Это означает что клиент / приложение должно уметь время от времени обрабатывать случаи выбирая значение на основе конкретного критерия в каждом отдельном взятом случае.
 
-In addition, a key component of a practical vector clock system is that the clocks cannot be allowed to grow forever - so there needs to be a procedure for occasionally garbage collecting the clocks in a safe manner to balance fault tolerance with storage requirements.
+В дополнение, ключевой компонент промышленных систем с векторными часами это то что часы не могут расти вечно - так что необходимо иногда собирать мусор безопастным способом чтобы не нарушить требования отказоустойчивости хранилища.
 
-### Replica synchronization: gossip and Merkle trees
+### Синхронизация реплик: gossip и деревья Меркла
 
-Given that the Dynamo system design is tolerant of node failures and network partitions, it needs a way to deal with nodes rejoining the cluster after being partitioned, or when a failed node is replaced or partially recovered.
+При условии что Dynamo-архитектура устойчива к падениям узлов и разделениям сети, она должна уметь пересоединять кластер после разделения или заменять упавший узел или присоединять востановившийся.
 
-Replica synchronization is used to bring nodes up to date after a failure, and for periodically synchronizing replicas with each other.
+Синхронизация реплик используется для обновления реплик до актуального состояния после отказа и для периодической синхронизации реплик между друг другом.
 
-Gossip is a probabilistic technique for synchronizing replicas. The pattern of communication (e.g. which node contacts which node) is not determined in advance. Instead, nodes have some probability `p` of attempting to synchronize with each other. Every `t` seconds, each node picks a node to communicate with. This provides an additional mechanism beyond the synchronous task (e.g. the partial quorum writes) which brings the replicas up to date.
+Gossip это вероятностный способ для синхронизации реплик. Это паттерн коммуникации (то есть способ которым узел общается с узлом) не детерминирован заранее. Вместо этого, узлы имеют некотрую вероятность `p` того что узел попытается синхронизироватся с другими. Каждые `t` секунд, каждый узел выбирает узел с которым будет коммуницировать. Это обепечивает дополнительный механизм за пределами синхронной части репликации (такой как частичный кворум записи) который приводит копии в актуальное состояние.
 
-Gossip is scalable, and has no single point of failure, but can only provide probabilistic guarantees.
+Gossip это масштабируемое и без единой точки отказа, но предоставляющее только вероятностные гарантии.
 
-In order to make the information exchange during replica synchronization efficient, Dynamo uses a technique called Merkle trees, which I will not cover in detail. The key idea is that a data store can be hashed at multiple different level of granularity: a hash representing the whole content, half the keys, a quarter of the keys and so on.
+Для того чтобы сделать обмен информацией во время синхронизации реплик эффективных, Dynamo использует технику под названием деревья Меркла, которые я не буду описывать в деталях. Ключевой идея это то что данные могут быть захешированы на нескольких уровнях детализации: хеш всего контента, хеш половины ключей, четверти и так далее.
 
-By maintaining this fairly granular hashing, nodes can compare their data store content much more efficiently than a naive technique. Once the nodes have identified which keys have different values, they exchange the necessary information to bring the replicas up to date.
+Поддерживая этот довольно детализированный хеш, узлы могут сравнивать данные которые хранят более эффективно чем сравнение в лоб. После того как узлы определили какие узлы содержат различные значения они могут обменится необходимой информацией чтобы привести реплики в актуальному состоянию.
 
-### Dynamo in practice: probabilistically bounded staleness (PBS)
+### Dynamo на практике: вероятностное ограничение устаревания (PBS)
 
-And that pretty much covers the Dynamo system design:
+Это в значительной степени охватывает архитектуру Dynamo:
 
-- consistent hashing to determine key placement
-- partial quorums for reading and writing
-- conflict detection and read repair via vector clocks and
-- gossip for replica synchronization
+- согласованное хеширование для определения расположения ключа
+- частичный кворум для записи и чтения
+- определение конфликтов и чтение исправлений используя векторные часы
+- gossip для синхронизации реплики
 
-How might we characterize the behavior of such a system? A fairly recent paper from Bailis et al. (2012) describes an approach called [PBS](http://pbs.cs.berkeley.edu/) (probabilistically bounded staleness) uses simulation and data collected from a real world system to characterize the expected behavior of such a system.
+Как можно было бы охарактеризовать поведение такой системы? Довольно недавняя публикация Bailis (2012) описывает подход названный  [PBS](http://pbs.cs.berkeley.edu/) (вероятностное ограничение устаревания) использует симуляцию и сбор данных о промышленных системах чтобы охарактеризовать ожидаемое поведение подобной системы.
 
-PBS estimates the degree of inconsistency by using information about the anti-entropy (gossip) rate, the network latency and local processing delay to estimate the expected level of consistency of reads. It has been implemented in Cassandra, where timing information is piggybacked on other messages and an estimate is calculated based on a sample of this information in a Monte Carlo simulation.
+PBS оценивает степень несогласованности используя информацию о уровне анти-энтропии (gossip), сетевых задержек и задержек локальной обработки чтобы определить ожилаемый уровень согласоваанности чтения. Этот прием реализован в Cassandra, где временная информация скомбинирована на разных сообщениях и оценка расчивается на основе этой информации сэмулированной методом Монте-Карло.
 
-Based on the paper, during normal operation eventually consistent data stores are often faster and can read a consistent state within tens or hundreds of milliseconds. The table below illustrates amount of time required from a 99.9% probability of consistent reads given different `R` and `W` settings on empirical timing data from LinkedIn (SSD and 15k RPM disks) and Yammer:
+Основываясь на публикации, во время нормальных операций(без каких либо сетевых и прочих проблем) время согласования данных зачастую намного меньше и можно читать согласованные данные за десятки-сотни миллисекунд. Таблица ниже показывает количество времени требуемое для 99.9% вероятности прочтения согласованных данных при различных настройках `R` и `W`(получена в результате анализа оптыных данных времени синхронизации из LinkedIn(SSD и 15k RPM disks) и Yammer) :
 
-![from the PBS paper](./images/pbs.png)
+![из публикации о PBS](./images/pbs.png)
 
-For example, going from `R=1`, `W=1` to `R=2`, `W=1` in the Yammer case reduces the inconsistency window from 1352 ms to 202 ms - while keeping the read latencies lower (32.6 ms) than the fastest strict quorum (`R=3`, `W=1`; 219.27 ms).
+Для примера, при переходе от `R=1`, `W=1` к `R=2`, `W=1` в Yammer продолжительность случаев несогласованности сокращается от 1352 мс до 202 мс - при удержани времени задержки при чтении на низком уровне (32.6 ms) что быстрее чем в режиме строгого кворума (`R=3`, `W=1`; 219.27 ms).
 
-For more details, have a look at the [PBS website](http://pbs.cs.berkeley.edu/)  and the associated paper.
+Для большего погружения, смотрите [PBS сайт](http://pbs.cs.berkeley.edu/) и саму публикацию.
 
-## Disorderly programming
+## Программирование в неупорядоченной манере
 
-Let's look back at the examples of the kinds of situations that we'd like to resolve. The first scenario consisted of three different servers behind partitions; after the partitions healed, we wanted the servers to converge to the same value. Amazon's Dynamo made this possible by reading from `R` out of `N` nodes and then performing read reconciliation.
+Давайте вернемся назад к примерам типов проблем которые нам бы хотелось решить. Первый сценарий содержит 3 различных сервера с разделением; когда разделение устранено, мы хотим чтобы сервера сошлись к одному и тому же значению. Amazon's Dynamo делает это возможным путем чтения значений с `R` из `N` узлов и после выполняя согласование значения.
 
-In the second example, we considered a more specific operation: string concatenation. It turns out that there is no known technique for making string concatenation resolve to the same value without imposing an order on the operations (e.g. without expensive coordination). However, there are operations which can be applied safely in any order, where a simple register would not be able to do so. As Pat Helland wrote:
+Во втором примере, у нас содержится более специфичная операция - соединение строк. Оказывается что мы не знаем технику сделать обьединение строк без учета порядка операций (то есть без дорогой координации). Однако, иммеются операции которые могут быть применены безопастно в любом порядке, там где простая запись не может гарантировать корректность. Как пишет Pat Helland:
 
-> ... operation-centric work can be made commutative (with the right operations and the right semantics) where a simple READ/WRITE semantic does not lend itself to commutativity.
+> ... Работа основанная на операциях может быть коммутативной (с правильными операциями и правильной семантикой) в то время как простая семантика ЗАПИСЬ/ЧТЕНИЕ не поддается обеспечению коммутативности.
 
-For example, consider a system that implements a simple accounting system with the `debit` and `credit` operations in two different ways:
+Для примера, возьмем систему которая реализует простой механизм оплаты с операциями `дебит` и `кредит` двумя способами:
 
-- using a register with `read` and `write` operations, and
-- using a integer data type with native `debit` and `credit` operations
+- используя ячейку данных с операциями `запись` и `чтения`
+- используя целочисленный тип с встроенными операциями `дебит` и `кредит`
 
-The latter implementation knows more about the internals of the data type, and so it can preserve the intent of the operations in spite of the operations being reordered. Debiting or crediting can be applied in any order, and the end result is the same:
+Последняя реализация знает больше о внутреннем устройстве типа данных и может сохранять итог  операций несмотря на то что порядок операций может быть изменен. Дебит или кредит могут быть применены в любом порядке и получится один и тот же результат:
 
-    100 + credit(10) + credit(20) = 130 and
-    100 + credit(20) + credit(10) = 130
+    100 + кредит(10) + кредит(20) = 130 and
+    100 + кредит(20) + кредит(10) = 130
 
- However, writing a fixed value cannot be done in any order: if writes are reordered, the one of the writes will overwrite the other:
+ Однако, запись фиксированных значений не может быть переупорядочена: если запись будет переупорядочена то тогда она перепишет другую:
 
-    100 + write(110) + write(130) = 130 but
-    100 + write(130) + write(110) = 110
+    100 + запись(110) + запись(130) = 130 but
+    100 + запись(130) + запись(110) = 110
 
-Let's take the example from the beginning of this chapter, but use a different operation. In this scenario, clients are sending messages to two nodes, which see the operations in different orders:
+Давайте возьмем пример из начала этой главы но используем другие операции. В этом сценарии, клиенты шлют сообщения двум узлам, которые видят операции в разном порядке:
 
-    [Clients]  --> [A]  1, 2, 3
-    [Clients]  --> [B]  2, 3, 1
+    [Клиенты]  --> [A]  1, 2, 3
+    [Клиенты]  --> [B]  2, 3, 1
 
-Instead of string concatenation, assume that we are looking to find the largest value (e.g. MAX()) for a set of integers. The messages 1, 2 and 3 are:
+Вместо обьеднения строк, Instead of string concatenation, преположим что мы ищем наибольшее значение (то есть max()) для множества целых чисел. Сообщения 1, 2 и 3 таковы:
 
-    1: { operation: max(previous, 3) }
-    2: { operation: max(previous, 5) }
-    3: { operation: max(previous, 7) }
+    1: { операция: max(предыдущий, 3) }
+    2: { операция: max(предыдущий, 5) }
+    3: { операция: max(предыдущий, 7) }
 
-Then, without coordination, both A and B will converge to 7, e.g.:
+То есть, без координации мы придем к одному и тому же значению - 7:
 
     A: max(max(max(0, 3), 5), 7) = 7
     B: max(max(max(0, 5), 7), 3) = 7
 
-In both cases, two replicas see updates in different order, but we are able to merge the results in a way that has the same result in spite of what the order is. The result converges to the same answer in both cases because of the merge procedure (`max`) we used.
+В обоих случаях, обе реплики видели обновления в разном порядке, но объединение результатов привело к получению одного и того же значения независимо от порядка. Результат сошелся в обоих случаях потому что была использована процедура обьединения (`max`).
 
-It is likely not possible to write a merge procedure that works for all data types. In Dynamo, a value is a binary blob, so the best that can be done is to expose it and ask the application to handle each conflict.
+Вполне веротяно что мы не можем написать процедуру обьединения для всех типов данных. В Dynamo, значение это бинарный файл, так что лучшее что можно сделать это просить приложение разрешить конфликты после каждого такого случая.
 
-However, if we know that the data is of a more specific type, handling these kinds of conflicts becomes possible. CRDT's are data structures designed to provide data types that will always converge, as long as they see the same set of operations (in any order).
+Однако, если мы знаем что данные более специфичного вида, мы можем обрабатывать возможные типы конфликтов. CRDT это структуры данных разработанные для предоставления типов данных которые всегда сходятся к одному значению если они получают одинковый набор изменений (без учета порядка).
 
-## CRDTs: Convergent replicated data types
+## CRDT: Сходящиеся реплицируемые типы данных
 
-CRDTs (convergent replicated datatypes) exploit knowledge regarding the commutativity and associativity of specific operations on specific datatypes.
+CRDTs основывается на знаениях о свойствах коммутативности и ассоциативности специфических операций над специфицическими типами данных.
 
-In order for a set of operations to converge on the same value in an environment where replicas only communicate occasionally, the operations need to be order-independent and insensitive to (message) duplication/redelivery. Thus, their operations need to be:
+Для того чтобы набор операций сходился к определенному значению в ситуации когда реплики коммуницируют время от времени, операции должны быть порядко-независимыми и не чувствительными к дупликации/переотправке сообщений. Таким образом, операции должны быть:
 
-- Associative (`a+(b+c)=(a+b)+c`), so that grouping doesn't matter
-- Commutative (`a+b=b+a`), so that order of application doesn't matter
-- Idempotent (`a+a=a`), so that duplication does not matter
+- Ассоциативными (`a+(b+c)=(a+b)+c`), то есть перегруппировки должны не изменять результата
+- Коммутативными (`a+b=b+a`), то есть порядок применения должен быть неважен
+- Идемпотентными (`a+a=a`), то есть повторное применение не должно влиять на результат
 
-It turns out that these structures are already known in mathematics; they are known as join or meet [semilattices](http://en.wikipedia.org/wiki/Semilattice).
+Это возврашет нас к структурам которые уже известны в математике; они известны как объединяемые или сходящиеся [полурешетки](http://en.wikipedia.org/wiki/Semilattice).
 
-A [lattice](http://en.wikipedia.org/wiki/Lattice_%28order%29) is a partially ordered set with a distinct top (least upper bound) and a distinct bottom (greatest lower bound). A semilattice is like a lattice, but one that only has a distinct top or bottom. A join semilattice is one with a distinct top (least upper bound) and a meet semilattice is one with a distinct bottom (greatest lower bound).
+[Полурешетка](http://en.wikipedia.org/wiki/Lattice_%28order%29) это частично упорядоченный набор с единственной верхней границей и единственной нижней границей. Полурешетка напоминает обычную решетку но с единственной верхней и нижней границей. Обьединяемые полурешетки имеют только верхнюю границу, а сходящиеся только нижнюю.
 
-Any data type that be expressed as a semilattice can be implemented as a data structure which guarantees convergence. For example, calculating the `max()` of a set of values will always return the same result regardless of the order in which the values were received, as long as all values are eventually received, because the `max()` operation is associative, commutative and idempotent.
+Любой тип данных который может быть выражен как полурешетка может быть реализован как структура данных с гарантиями сходимости. Для примера, подсчет  `max()` набора значений всегда будет возврашать одно и то же значение независимо от порядка получаемых значений, всегда пока значения будут поступать, потому что операция `max()` ассоциативна, коммутативна, и идемпотентна.
 
-For example, here are two lattices: one drawn for a set, where the merge operator is `union(items)` and one drawn for a strictly increasing integer counter, where the merge operator is `max(values)`:
+Для примера, здесь две полурешетки: первая отображает набор где оператором обьединения служит функция `union(items)`, во второй мы имеем строго возрастающий счетчик с оперетором объединения `max(values)`:
 
        { a, b, c }              7
       /      |    \            /  \
@@ -306,177 +306,177 @@ For example, here are two lattices: one drawn for a set, where the merge operato
       |  \  /  | /           /   |  \
       {a} {b} {c}            3   5   7
 
-With data types that can be expressed as semilattices, you can have replicas communicate in any pattern and receive the updates in any order, and they will eventually agree on the end result as long as they all see the same information. That is a powerful property that can be guaranteed as long as the prerequisites hold.
+С типами данных которые могут быть выражены полурешетками, мы можем иметь реплики которые коммуницирует любым способом и получают обновления в любом порядке, и они будут в конечном счете сходится к конечному результату, до тех пор пока они получают одну и ту же информацию. Это наиболее сильное свойство которое мы можем гарантировать, до тех пока мы выполняем предпосылки.
 
-However, expressing a data type as a semilattice often requires some level of interpretation. Many data types have operations which are not in fact order-independent. For example, adding items to a set is associative, commutative and idempotent. However, if we also allow items to be removed from a set, then we need some way to resolve conflicting operations, such as `add(A)` and `remove(A)`. What does it mean to remove an element if the local replica never added it? This resolution has to be specified in a manner that is order-independent, and there are several different choices with different tradeoffs.
+Однако, выражение типов данных в виде полурешеток зачастую требует некотрого уровня интерпретации. Многие типы данных имеют операции которые не подходят для того чтобы быть выражеными порядко-независимыми. Для примера, добавление элемента в множество ассоциативно, коммутативно и идемпотентно. Однако, если мы также позволяем удалять элементы тогда необходим способ разрешать конфликтуюшие операции вроде `добавить(A)` и `удалить(A)`. Что означает удалить элемент если этот элемент никогда не был добавлен в локальную реплику?  Решение этого вопроса должно быть определено в порядко-независимой манере, и есть несколько различных вариантов с разными компромисами.
 
-This means that several familiar data types have more specialized implementations as CRDT's which make a different tradeoff in order to resolve conflicts in an order-independent manner. Unlike a key-value store which simply deals with registers (e.g. values that are opaque blobs from the perspective of the system), someone using CRDTs must use the right data type to avoid anomalies.
+Это означает что несколько похожих типов данных имеют более узкоспециализированную реализацию как CRDT которая идет на различные компромиссы с упорядоченностью чтобы разрешать конфликты в порядко-независимым способом. В противоположность ключ-значение хранилищу которая оперирует простыми ячейками (то есть значениями служат файлы непрозрачной структуры с точки зрения системы), при использовании CRDT необходимо использовать правильный тип данных чтобы избежать аномалий.
 
-Some examples of the different data types specified as CRDT's include:
+Несколько примеров различных типов данных определенных как CRDT:
 
-- Counters
-  - Grow-only counter (merge = max(values); payload = single integer)
-  - Positive-negative counter (consists of two grow counters, one for increments and another for decrements)
-- Registers
-  - Last Write Wins -register (timestamps or version numbers; merge = max(ts); payload = blob)
-  - Multi-valued -register (vector clocks; merge = take both)
-- Sets
-  - Grow-only set (merge = union(items); payload = set; no removal)
-  - Two-phase set (consists of two sets, one for adding, and another for removing; elements can be added once and removed once)
-  - Unique set (an optimized version of the two-phase set)
-  - Last write wins set (merge = max(ts); payload = set)
-  - Positive-negative set (consists of one PN-counter per set item)
-  - Observed-remove set
-- Graphs and text sequences (see the paper)
+- Счетчики
+  - Постоянно возрастающий счетчик (функция объединения = max(values); содержимое = single integer)
+  - Положительно-отрицательный счетчик (содержит два возрастающих счетчика, один для прибавлений, другой для вычитаний)
+- Ячейки
+  - "Last Write Wins" - ячейки (временные метки или номера версий;функция объединения = max(ts); содержимое = blob)
+  - Ячейка с множественным значением (векторные часы; функция объединения = take both)
+- Множества
+  - Только увеличивающиеся множество (функция объединения = union(items); сожержимое = set; элементы не удаляемы)
+  - Двух-фазное множество (содержит два множества, одно для добавленных элементов, и другое для удаленных; элементы можно удалить и добавить один раз)
+  - Уникальное множество (оптимизированная версия двух-фазного)
+  - "Last write wins" множество (функция объединения = max(ts); сожержимое = set)
+  - Положительно-негативное множество (содержит PN-счетчик для каждого элемента)
+  - Observed-remove множество
+- Графы и техтвые последовательности(см. публикацию)
 
-To ensure anomaly-free operation, you need to find the right data type for your specific application - for example, if you know that you will only remove an item once, then a two-phase set works; if you will only ever add items to a set and never remove them, then a grow-only set works.
+Для обеспечения операций без аномалий, ты должен найти правильный тип данных для своего приложения - для примера, если ты значешь что ты будешь удалять один элемент только один раз - двух-фазное множество будет отлично работать; если ты будешь только добавлять элементы тогда сгодится и только возрастающее множество.
 
-Not all data structures have known implementations as CRDTs, but there are CRDT implementations for booleans, counters, sets, registers and graphs in the recent (2011) [survey paper from Shapiro et al](http://hal.inria.fr/docs/00/55/55/88/PDF/techreport.pdf).
+Не все типы данных имеют известные реализации CRDT, но созданы CRDT имплементации для булевых констант, счетчиков, множеств, регистров, графов (2011) [ислледовательская публикация от Шапиро и других](http://hal.inria.fr/docs/00/55/55/88/PDF/techreport.pdf).
 
-Interestingly, the register implementations correspond directly with the implementations that key value stores use: a last-write-wins register uses timestamps or some equivalent and simply converges to the largest timestamp value; a multi-valued register corresponds to the Dynamo strategy of retaining, exposing and reconciling concurrent changes. For the details, I recommend that you take a look at the papers in the further reading section of this chapter.
+Интересно, что реализация ячейки напрямую соотвествует реализациям хранилищ ключ значение: last-write-wins ячейка использует временные метки и просто сходится к значению с наибольшей меткой времени; ячейка с множественным значением соотвествует стратегии сохранения и разрешения конфликтующих записей Dynamo. Для более глубокого погружения я рекомендую взглянуть на публикацию в секции "для дальнейшего чтения" этой главы.
 
-## The CALM theorem
+## CALM теорема
 
-The CRDT data structures were based on the recognition that data structures expressible as semilattices are convergent. But programming is about more than just evolving state, unless you are just implementing a data store.
+CRDT основаны на осознание того факта что структуры данных выражженные как полурешетки сходятся. Но программирование это не только изменение состояния, если только вы не разрабатываете хранилище данных.
 
-Clearly, order-independence is an important property of any computation that converges: if the order in which data items are received influences the result of the computation, then there is no way to execute a computation without guaranteeing order.
+Несомненно, порядко-независимость это важное качество для сходимости любых вычислений: если порядок в котором получаются данные влияет на результат вычислений, нет способа выполнять вычисления без гарантии определенного порядка.
 
-However, there are many programming models in which the order of statements does not play a significant role. For example, in the [MapReduce model](http://en.wikipedia.org/wiki/MapReduce), both the Map and the Reduce tasks are specified as stateless tuple-processing tasks that need to be run on a dataset. Concrete decisions about how and in what order data is routed to the tasks is not specified explicitly, instead, the batch job scheduler is responsible for scheduling the tasks to run on the cluster.
+Однако, существуют многие модели программирования в которых порядок операторов не играет важной роли. Для примера, в [MapReduce model](http://en.wikipedia.org/wiki/MapReduce), и Map и Reduce задачи определяют как задачи обработки кортежей без внутреннего состояния которые необходимо запустить на наборе данных. Конкретные решения о том как и в каком порядке данные должны поступать в задачи не определяются явным образом, вместо этого планировшик сам отвечает за распределение задач между узлами в кластерах и порядком их запуска.
 
-Similarly, in SQL one specifies the query, but not how the query is executed. The query is simply a declarative description of the task, and it is the job of the query optimizer to figure out an efficient way to execute the query (across multiple machines, databases and tables).
+Похожим образом, в SQL мы только записываем запрос но не определяем как его выполнять. Запрос это простая декларативная запись задачи и работой оптимизатора запросов является выяснить эффективный способ выполнения запроса (распределив выполнение между машинами, базами и таблицами).
 
-Of course, these programming models are not as permissive as a general purpose programming language. MapReduce tasks need to be expressible as stateless tasks in an acyclic dataflow program; SQL statements can execute fairly sophisticated computations but many things are hard to express in it.
+Конечно, эти модели программирования не такие универсальные как ящыки общего назначения. MapReduce задачи должны быть выражены как чистые функции в ациклическом пути исполнения программы; SQL команды могут выполнять довольно сложные вычисления но многие вещи довольно трудно представимы в них.
 
-However, it should be clear from these two examples that there are many kinds of data processing tasks which are amenable to being expressed in a declarative language where the order of execution is not explicitly specified. Programming models which express a desired result while leaving the exact order of statements up to an optimizer to decide often have semantics that are order-independent. This means that such programs may be possible to execute without coordination, since they depend on the inputs they receive but not necessarily the specific order in which the inputs are received.
+Однако, это два простых примера которые показывают что есть много задач обработки информации которые поддаются выражению в декларативном языке в котором явно не указывается порядок. Модель программирования которая выражает желаемый результат без явного указания порядка вычислений(оставляя его оптимизатору) имеют порядко-независимую семантику. Это означает что программы могут быть выполнены без координации, поскольку они зависят от входных данных но не зависят от порядка получаемых данных.
 
-The key point is that such programs *may be* safe to execute without coordination. Without a clear rule that characterizes what is safe to execute without coordination, and what is not, we cannot implement a program while remaining certain that the result is correct.
+Ключевая идея что такие программы *могут быть* безопастными при выполнении без координации. Без явного правила которое характеризует то что является безопастным для выполнения без координации, а что нет, мы не можем реализовать программу оставаясь уверенным, что результат работы программы корректен.
 
-This is what the CALM theorem is about. The CALM theorem is based on a recognition of the link between logical monotonicity and useful forms of eventual consistency (e.g. confluence / convergence). It states that logically monotonic programs are guaranteed to be eventually consistent.
+Именно об этом говорит CALM теорема. CALM теорема  основана на осознании связи между логической монотонностью и полезной для использования формой согласованности в конечном итоге (то есть слияния/сходимости). Она утверждает что логически монотонная программа будет согласованной в конечном итоге.
 
-Then, if we know that some computation is logically monotonic, then we know that it is also safe to execute without coordination.
+Следовательно, если мы знаем что некотрые вычисления логически монотонны, значит мы знаем что данные вычисления безопастно запускать без координации.
 
-To better understand this, we need to contrast monotonic logic (or monotonic computations) with [non-monotonic logic](http://plato.stanford.edu/entries/logic-nonmonotonic/) (or non-monotonic computations).
+Для лучшего понимания этого, мы должны увидеть разнницу между логически монотонными вычислениями и [не логически монотонными](http://plato.stanford.edu/entries/logic-nonmonotonic/).
 
 <dl>
-  <dt>Monotony</dt>
-  <dd>if sentence `φ` is a consequence of a set of premises `Γ`, then it can also be inferred from any set `Δ` of premises extending `Γ`</dd>
+  <dt>Монотонность</dt>
+  <dd>Если утверждение `φ` является следствием из множества предпосылок `Γ`, тогда оно может быть выведено из любого множества предпосылок `Δ` расширяющего `Γ`</dd>
 </dl>
 
-Most standard logical frameworks are monotonic: any inferences made within a framework such as first-order logic, once deductively valid, cannot be invalidated by new information. A non-monotonic logic is a system in which that property does not hold - in other words, if some conclusions can be invalidated by learning new knowledge.
+Большинство стандартных логических структур монотонны: любые выводы сделанные в рамках логики первого порядка, при дедуктивном выводе, не могут быть опровергнуты новой информацией. Не монотонная логика это система в которой данное свойство не сдерживается - другими словами, некотрые выводы в такой системе могут быть опровергнуты новыми данными.
 
-Within the artificial intelligence community, non-monotonic logics are associated with [defeasible reasoning](http://plato.stanford.edu/entries/reasoning-defeasible/) - reasoning, in which assertions made utilizing partial information can be invalidated by new knowledge. For example, if we learn that Tweety is a bird, we'll assume that Tweety can fly; but if we later learn that Tweety is a penguin, then we'll have to revise our conclusion.
+В сообществе разработчиков исскуственного интеллекта, не монотонная логика ассоциируется с [опровергаемыми расуждениями](http://plato.stanford.edu/entries/reasoning-defeasible/) - расуждениями, в которых предположения сделанные на части информации могут быть опровергнуты новой информацией. Для примера, если вы узнаете что Твити это птица, вы предположите что Твити умеет летать; но если вы позже узнаете что Твити это пингвин тогда вам приедется пересмотреть свое предположение.
 
-Monotonicity concerns the relationship between premises (or facts about the world) and conclusions (or assertions about the world). Within a monotonic logic, we know that our results are retraction-free: [monotone](http://en.wikipedia.org/wiki/Monotonicity_of_entailment) computations do not need to be recomputed or coordinated; the answer gets more accurate over time. Once we know that Tweety is a bird (and that we're reasoning using monotonic logic), we can safely conclude that Tweety can fly and that nothing we learn can invalidate that conclusion.
+Монотонность касается отношений между предпосылками (или фактами о окружающей среде) и заключениями (или утверждениями об окружающей среде). В монотонной логике мы знаем что наши результаты не пересматриваемы: [монотонные](http://en.wikipedia.org/wiki/Monotonicity_of_entailment) вычисления не нужнаются в перевычислениях или координации; ответ становится все более точным с течением времени. Однажды узнав что Твити это птица (и что мы рассуждаем с использованием монотонной логики), мы можем безопастно заключить что Твити может летать и что ничего что мы узнаем не заставит нас отказатся от этого заключения.
 
-While any computation that produces a human-facing result can be interpreted as an assertion about the world (e.g. the value of "foo" is "bar"), determining whether a computation in a von Neumann -machine based programming model is monotonic difficult because it is not exactly clear what the relationship between facts and assertions are and whether those relationships are monotonic.
+В то время как любые вычисления что вычисляют человеко-читабельный результат могут быть интерпретированы как утверждения об окружающем мире, определение является ли вычисление в программе исполняемой на фон-Нейманновской машине монотонным трудно, потому что не совсем очевидны отношения между фактами и утверждениями и являются ли эти отношения монотонными.
 
-However, there are a number of programming models for which determining monotonicity is possible. In particular, [relational algebra](http://en.wikipedia.org/wiki/Relational_algebra) (e.g. the theoretical underpinnings of SQL) and [Datalog](http://en.wikipedia.org/wiki/Datalog) provide highly expressive languages that have well-understood interpretations.
+Однако, существует некотрые модели программирования которые можно определить как монотонные. Например, [реляционная алгебра](http://en.wikipedia.org/wiki/Relational_algebra) (теория лежащая в основе SQL) и [Datalog](http://en.wikipedia.org/wiki/Datalog) предоставляющие высокоуровневые языки которые имеют хорошо понятные интерпретации.
 
-Both basic Datalog and relational algebra (even with recursion) are known to be monotonic. More specifically, computations expressed using a certain set of basic operators are known to be monotonic (selection, projection, natural join, cross product, union and recursive Datalog without negation), and non-monotonicity is introduced by using more advanced operators (negation, set difference, division, universal quantification, aggregation).
+Оба(Datalog и реляционная алгебра - даже с рекурсией), как известно, монотонны. Более конкретно, вычисления выраженные с использованием определенного набора базовых операторов - выборка, проекция, естественное соединение, декартово произведение, объединение и рекурсивный Datalog без отрицаний) - монотонны, и становятся не монотонными при добавлении более продвинутых операторов (отрицание, вычитание, деление, квантор всеобщности, группировка).
 
-This means that computations expressed using a significant number of operators (e.g. map, filter, join, union, intersection) in those systems are logically monotonic; any computations using those operators are also monotonic and thus safe to run without coordination. Expressions that make use of negation and aggregation, on the other hand, are not safe to run without coordination.
+Это означает что вычисления выраженные с использованием значительного количества операторов (таких как map, filter, join, union, intersection) в твоей системе логически монотонны; любые вычисления использующие эти вычисления также монотонны и таким образом их можно безопастно запускать без координации. Выражения которые используют отрицания или группировки, напротив делают невозможным запуск таких вычислений без координации.
 
-It is important to realize the connection between non-monotonicity and operations that are expensive to perform in a distributed system. Specifically, both *distributed aggregation* and *coordination protocols* can be considered to be a form of negation. As Joe Hellerstein [writes](http://www.eecs.berkeley.edu/Pubs/TechRpts/2010/EECS-2010-90.pdf):
+Это важно для понимания связи между немонотонностью и операциями которые очень ресурсоемки при апуске в распределенной системе. Конкретно, и *распределенная группировка* и *протоколы координации* считаются одной из форм отрицания. Как Joe Hellerstein [писал](http://www.eecs.berkeley.edu/Pubs/TechRpts/2010/EECS-2010-90.pdf):
 
-> To establish the veracity of a negated predicate in a distributed setting, an evaluation strategy has to start "counting to 0" to determine emptiness, and wait until the distributed counting process has definitely terminated. Aggregation is the generalization of this idea.
+> Для обеспечения достоверности отрицательного предиката в распределенной среде, стратегия вычисления должна начать "подсчет с 0", чтобы определить пустоту, и ждать пока распределенный процесс подсчета определится как завершенный. Группировка это обобщение этой идеи.
 
-and:
+и:
 
-> This idea can be seen from the other direction as well. Coordination protocols are themselves aggregations, since they entail voting: Two-Phase Commit requires unanimous votes, Paxos consensus requires majority votes, and Byzantine protocols require a 2/3 majority. Waiting requires counting.
-
-
-
-If, then we can express our computation in a manner in which it is possible to test for monotonicity, then we can perform a whole-program static analysis that detects which parts of the program are eventually consistent and safe to run without coordination (the monotonic parts) - and which parts are not (the non-monotonic ones).
-
-Note that this requires a different kind of language, since these inferences are hard to make for traditional programming languages where sequence, selection and iteration are at the core. Which is why the Bloom language was designed.
+> Эта идея может быть расмотрена с другой стороны также хорошо. Протоколы координации это сами аггрегатами, так как они представляют из себя голосования: двух-фазный коммит требует единодушного голосования, Paxos требует большинство голосов, и Византийский протокол требует 2/3 большинства. Ожидание требует подсчета.
 
 
-## What is non-mononicity good for?
 
-The difference between monotonicity and non-monotonicity is interesting. For example, adding two numbers is monotonic, but calculating an aggregation over two nodes containing numbers is not. What's the difference? One of these is a computation (adding two numbers), while the other is an assertion (calculating an aggregate).
+Если, мы можем выразить наши вычисления способом в котором возможно проверить монотонность, тогда мы можем выполнить статический анализ всей программы и определить участки программы которые будут согласованны в конечном итоге без координации (монотонные участки) - и которые не соотвествуют этому требованию (не монотонные).
 
-How does a computation differ from an assertion? Let's consider the query "is pizza a vegetable?". To answer that, we need to get at the core: when is it acceptable to infer that something is (or is not) true?
+Заметим что это требует других типов языков, поскольку эти выводы сложно сделать для традиционных языков, где последовательности, выборки и итерация встроены в само ядро. Это причина по которой был разработан язык Bloom.
 
-There are several acceptable answers, each corresponding to a different set of assumptions regarding the information that we have and the way we ought to act upon it - and we've come to accept different answers in different contexts.
 
-In everyday reasoning, we make what is known as the [open-world assumption](http://en.wikipedia.org/wiki/Open_world_assumption): we assume that we do not know everything, and hence cannot make conclusions from a lack of knowledge. That is, any sentence may be true, false or unknown.
+## Для чего может быть полезна не монотонность вычислений?
+
+Разница между монотонность и не монотонностью крайне интересна. Для примера, сложение двух числе монотонно, но подсчет аггрегации двух узлов содержащих числа не монотонно. В чем же разница? Первое это вычисление (сложение двух чисел), а второе это утверждение (расчет аггрегата).
+
+В чем разница между утверждением и вычислением? Давайте расммотрим запрос "Эта пицца овощная?". Для ответа, мы должны вникнуть в суть: когда приемлимо сделать вывод, что что-либо верно(или не верно)?
+
+Существует несколько возможных ответов, каждый вытекает из разного набора допущений относительно информации что у нас есть и того как мы должны действовать в соотвествии с ней - и мы приходим к пониманию что мы можем принять различные ответы в различных контекстах.
+
+В повседневных рассуждениях, мы делаем то что известно как[Предположение об открытости мира](http://en.wikipedia.org/wiki/Open_world_assumption): мы допускаем что мы не знаем всего, и следовательно не можем делать заключение изза недостатка у нас знаний. То есть любое утверждение может быть истинным, ложным, или может быть неизвестно истинно оно или нет.
 
                                     OWA +             |  OWA +
-                                    Monotonic logic   |  Non-monotonic logic
-    Can derive P(true)      |   Can assert P(true)    |  Cannot assert P(true)
-    Can derive P(false)     |   Can assert P(false)   |  Cannot assert P(true)
-    Cannot derive P(true)   |   Unknown               |  Unknown
-    or P(false)
+                                    Монотонная логика   |  Не монотонная логика
+    можем вывести P(истина)      |  Можем утверждать P(true)    |  Не можем утверждать P(true)
+    можем вывести P(false)     |   Можем утверждать P(false)   |  Не можем утверждать P(true)
+    Не можем вывести P(true)   |   Неизвестно               |  Неизвестно
+    и P(false)
 
-When making the open world assumption, we can only safely assert something we can deduce from what is known. Our information about the world is assumed to be incomplete.
+Когда делается предположение об открытости мира, мы можем безопастно утверждать только то что мы можем вывести из известной нам информации. Наши знания о мире считаются неполными.
 
-Let's first look at the case where we know our reasoning is monotonic. In this case, any (potentially incomplete) knowledge that we have cannot be invalidated by learning new knowledge. So if we can infer that a sentence is true based on some deduction, such as "things that contain two tablespoons of tomato paste are vegetables" and "pizza contains two tablespoons of tomato paste", then we can conclude that "pizza is a vegetable". The same goes for if we can deduce that a sentence is false.
+Давайте сначала взглянем на случай когда мы знаем, что наши рассуждения монотонны. В этом случае, любое(потенциально не полное) знание которое у нас есть мы не может сделать недействительным, узнав чтото новое. Так если мы вывели что предложение верно основываясь на некотрой дедукции, такой как "то что содержит, две столовых ложки томатной пасты является овощным" и "пицца содержит две столовых ложки томатной пасты", тогда мы можем заключит что "пицца овощная. То же самое верно и для случая если мы сможем дедуктивно показать что утверждение ложно.
 
-However, if we cannot deduce anything - for example, the set of knowledge we have contains customer information and nothing about pizza or vegetables - then under the open world assumption we have to say that we cannot conclude anything.
+Однако, Если мы не можем применить дедукцию - для примера, набор наших данных содержит информацию о клиентах и ничего о пицце или овощах - тогда при условии предположения открытого мира мы должны заключить что не можем сделать вывод.
 
-With non-monotonic knowledge, anything we know right now can potentially be invalidated. Hence, we cannot safely conclude anything, even if we can deduce true or false from what we currently know.
+С немонотонным знанием, все что мы узнаем может быть признано недействительным в будущем. Следовательно, мы не можем безопастно делать какие либо выводы, даже если мы сделали дедуктивный вывод из текущих знаний.
 
-However, within the database context, and within many computer science applications we prefer to make more definite conclusions. This means assuming what is known as the [closed-world assumption](http://en.wikipedia.org/wiki/Closed_world_assumption): that anything that cannot be shown to be true is false. This means that no explicit declaration of falsehood is needed. In other words, the database of facts that we have is assumed to be complete (minimal), so that anything not in it can be assumed to be false.
+Однако, в контексте баз данных, и в рамках многих приложений информатики мы предпочтем сделать более определенные заключения. Это означает допущение известное как [предположении о закрытом мире](http://en.wikipedia.org/wiki/Closed_world_assumption): что чтолибо не может быть доказано как истинное - ложное. Это означает что нет нужды в явном объявлении ложности. Другими словами, база данных - это факты которые мы будем считать полными(минимальными), следовательно они не могут быть ложными.
 
-For example, under the CWA, if our database does not have an entry for a flight between San Francisco and Helsinki, then we can safely conclude that no such flight exists.
+Для примера, в ПЗМ, если наша база данных не содержит в себе перелетов между Сан-Франциско и Хельсинки, значит мы можем заключить что такого перелета нету.
 
-We need one more thing to be able to make definite assertions: [logical circumscription](http://en.wikipedia.org/wiki/Circumscription_%28logic%29). Circumscription is a formalized rule of conjecture. Domain circumscription conjectures that the known entities are all there are. We need to be able to assume that the known entities are all there are in order to reach a definite conclusion.
+На необходимо больше способов для того чтобы делать определенные утверждения: [логической ограничение](http://en.wikipedia.org/wiki/Circumscription_%28logic%29). Ограничение это формализованное правило гипотезы. Область ограниченная гипотезой предполагает что все известные сущности содержатся в ней. Мы должны допускать что известные сущности содержатся в области гипотезы чтобы достичь определенного вывода.
 
                                     CWA +             |  CWA +
-                                    Circumscription + |  Circumscription +
-                                    Monotonic logic   |  Non-monotonic logic
-    Can derive P(true)      |   Can assert P(true)    |  Can assert P(true)
-    Can derive P(false)     |   Can assert P(false)   |  Can assert P(false)
-    Cannot derive P(true)   |   Can assert P(false)   |  Can assert P(false)
-    or P(false)
+                                    Ограничение + |  Ограничение +
+                                    Монотонная логика   |  Не монотонная логика
+    Можем вывести P(true)      |   Можем утверждать P(true)    |  Можем утверждать P(true)
+    Можем вывести P(false)     |   Можем утверждать P(false)   |  Можем утверждать P(false)
+    Cannot вывести P(true)   |   Можем утверждать P(false)   |  Можем утверждать P(false)
+    или P(false)
 
-In particular, non-monotonic inferences need this assumption. We can only make a confident assertion if we assume that we have complete information, since additional information may otherwise invalidate our assertion.
+В частности, не монотнные выводы нуждаются в этом допущении. Мы можем сделать уверенное устверждение если мы допускаем что мы имеем полную информацию, так как дополнительная информация может сделать недействительными наши утверждения.
 
-What does this mean in practice? First, monotonic logic can reach definite conclusions as soon as it can derive that a sentence is true (or false). Second, nonmonotonic logic requires an additional assumption: that the known entities are all there is.
+Что это хначит на практике? Во первых, монотонная логика может достичь определенного заключения так скоро как станет возможным вывести что утверждение истинно(или ложно). Во вторых не монотнная логика требует дополнительного допущения что все необходимые сущности для вывода у нас уже есть.
 
-So why are two operations that are on the surface equivalent different? Why is adding two numbers monotonic, but calculating an aggregation over two nodes not? Because the aggregation does not only calculate a sum but also asserts that it has seen all of the values. And the only way to guarantee that is to coordinate across nodes and ensure that the node performing the calculation has really seen all of the values within the system.
+Так почему 2 операции который на первый взгляд эквивалентны на самом деле отличаются? Почему сложение двух чисел монотонно а аггрегация данных с двух узлов нет? Потому что аггрегация не только считает сумму но и также утверждает что есть все необходимые значения. И единственный способ гарантировать это - это координировать узлы и обеспечивать чтобы узлы выполняли вычисления только когда им видна вся информация в системе.
 
-Thus, in order to handle nonmonotonicity one needs to either use distributed coordination to ensure that assertions are made only after all the information is known or make assertions with the caveat that the conclusion can be invalidated later on.
+Таким образом, в целях обработки не моннотонности необходимо либо использовать распределенную кординацию для обеспечения того что утверждения сделаны после того как вся информация стала известна либо делать утверждения с оговоркой что в дальнейшем они могут быть отменены.
 
-Handling non-monotonicity is important for reasons of expressiveness. This comes down to being able to express non-monotone things; for example, it is nice to be able to say that the total of some column is X. The system must detect that this kind of computation  requires a global coordination boundary to ensure that we have seen all the entities.
+Обработка не монотонности важна в целях выразительности. Это сводится к возможности выражать не монотонные вещи; для примера, удобно когда вы можете сказать что абсолютное значение колонки - X. Система должна определять что этот тип вычислений требует глобальной координации границ для того чтобы обеспечивать полноту видимых в системе сущностей.
 
-Purely monotone systems are rare. It seems that most applications operate under the closed-world assumption even when they have incomplete data, and we humans are fine with that. When a database tells you that a direct flight between San Francisco and Helsinki does not exist, you will probably treat this as "according to this database, there is no direct flight", but you do not rule out the possibility that that in reality such a flight might still exist.
+Чисто монотонные системы редки. Кажется что большая часть приложений работает в предположении закрытого мира даже когда она имеет неполные данные и мы, люди, свыклись с этим. Когда база данных говорит что прямого рейса из Сан-Франциско до Хельсинки не существует, вы будете предполагать что "в соответсвии с этой базой данных, прямого рейса нет", но вы исключите возможность что такой рейс может существовать.
 
-Really, this issue only becomes interesting when replicas can diverge (e.g. during a partition or due to delays during normal operation). Then there is a need for a more specific consideration: whether the answer is based on just the current node, or the totality of the system.
+В реальности, эта проблема приходит только когда реплики расходятся (во время разделений или изза задержекво время нормальных операций). Толгда необходимо более частное рассмотрение: ответ основан только на инфмормации с реплики или на информации со всей системы.
 
-Further, since nonmonotonicity is caused by making an assertion, it seems plausible that many computations can proceed for a long time and only apply coordination at the point where some result or assertion is passed to a 3rd party system or end user. Certainly it is not necessary for every single read and write operation within a system to enforce a total order, if those reads and writes are simply a part of a long running computation.
+В дальнейшем, поскольку немонотонность это причина того что было сделано утверждение, кажестся правдоподобным, что многие вычисления могут продолжать работать в течении длительного времени и применять координацию только в местах где результат или утверждение попадает пользователю или в стороннюю систему. Конечно не является необходимым обеспечивать абсолютный порядок для всех чтений и записей, если эти операции просто элементы в длинной цепочке вычислений.
 
-## The Bloom language
+## Язык Bloom
 
-The [Bloom language](http://www.bloom-lang.net/) is a language designed to make use of the CALM theorem. It is a Ruby DSL which has its formal basis in a temporal logic programming language called Dedalus.
+[Язык Bloom](http://www.bloom-lang.net/) это язык разработанный чтобы использовать CALM теорему. Это Ruby DSL который имеет формальную основу в темпоральной логике языка программирования названного Dedalus.
 
-In Bloom, each node has a database consisting of collections and lattices. Programs are expressed as sets of unordered statements which interact with collections (sets of facts) and lattices (CRDTs). Statements are order-independent by default, but one can also write non-monotonic functions.
+В Bloom, каждый узел имеет базу данных содержащих коллекцию или решетку. Программы выражаются как наборы неупорядоченных объявлений который взаимодействуют с коллекциями(наборы фактов) и решетками(CRDT). Объявления порядко независмы по умолчанию, но вы также можете писать не монотонные функции.
 
 
-Have a look at the [Bloom website](http://www.bloom-lang.net/) and [tutorials](https://github.com/bloom-lang/bud/tree/master/docs) to learn more about Bloom.
+Посмотрите на [Bloom сайт](http://www.bloom-lang.net/) и [учебник](https://github.com/bloom-lang/bud/tree/master/docs) чтобы узнать больше о  Bloom.
 
 ---
 
-## Further reading
+## Дальнейшее чтение
 
-#### The CALM theorem, confluence analysis and Bloom
+#### CALM теорема, анализ слияний и Bloom
 
-[Joe Hellerstein's talk @RICON 2012](http://vimeo.com/53904989) is a good introduction to the topic, as is [Neil Conway's talk @Basho](http://vimeo.com/45111940). For Bloom in particular, see [Peter Alvaro's talk@Microsoft](http://channel9.msdn.com/Events/Lang-NEXT/Lang-NEXT-2012/Bloom-Disorderly-Programming-for-a-Distributed-World).
+[речь Joe Hellerstein @RICON 2012](http://vimeo.com/53904989) хорошее введение в тему, как есть [речь Neil Conway  @Basho](http://vimeo.com/45111940). Для Bloom в частности, смотрите [речь Peter Alvaro @Microsoft](http://channel9.msdn.com/Events/Lang-NEXT/Lang-NEXT-2012/Bloom-Disorderly-Programming-for-a-Distributed-World).
 
 - [The Declarative Imperative: Experiences and Conjectures in Distributed Logic](http://www.eecs.berkeley.edu/Pubs/TechRpts/2010/EECS-2010-90.pdf) - Hellerstein, 2010
 - [Consistency Analysis in Bloom: a CALM and Collected Approach](http://db.cs.berkeley.edu/papers/cidr11-bloom.pdf) - Alvaro et al., 2011
 - [Logic and Lattices for Distributed Programming](http://db.cs.berkeley.edu/papers/UCB-lattice-tr.pdf) - Conway et al., 2012
 - [Dedalus: Datalog in Time and Space](http://db.cs.berkeley.edu/papers/datalog2011-dedalus.pdf) - Alvaro et al., 2011
 
-#### CRDTs
+#### CRDT
 
-[Marc Shapiro's talk @ Microsoft](http://research.microsoft.com/apps/video/dl.aspx?id=153540) is a good starting point for understanding CRDT's.
+[речь Marc Shapiro @ Microsoft](http://research.microsoft.com/apps/video/dl.aspx?id=153540) хорошая отправная точка для понимания CRDT.
 
 - [CRDTs: Consistency Without Concurrency Control](http://hal.archives-ouvertes.fr/docs/00/39/79/81/PDF/RR-6956.pdf) - Letitia et al., 2009
 - [A comprehensive study of Convergent and Commutative Replicated Data Types](http://hal.inria.fr/docs/00/55/55/88/PDF/techreport.pdf), Shapiro et al., 2011
 - [An Optimized conflict-free Replicated Set](http://arxiv.org/pdf/1210.3368v1.pdf) - Bieniusa et al., 2012
 
-#### Dynamo; PBS; optimistic replication
+#### Dynamo; PBS; оптимистическая репликация
 
 - [Dynamo: Amazon’s Highly Available Key-value Store](http://www.allthingsdistributed.com/files/amazon-dynamo-sosp2007.pdf) - DeCandia et al., 2007
 - [PNUTS: Yahoo!'s Hosted Data Serving Platform](http://scholar.google.com/scholar?q=PNUTS:+Yahoo!'s+Hosted+Data+Serving+Platform) - Cooper et al., 2008
