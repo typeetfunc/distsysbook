@@ -1,28 +1,28 @@
-# %chapter_number%. Further reading and appendix
+# %chapter_number%. Литература для дальнейшего чтения и заключение
 
-If you've made it this far, thank you.
+Если вы зашли так далеко, спасибо вам.
 
-If you liked the book, follow me on [Github](https://github.com/mixu/) (or [Twitter](http://twitter.com/mikitotakada)). I love seeing that I've had some kind of positive impact. "Create more value than you capture" and all that.
+Если вам понравилась эта книга, следите за автором на  [Github](https://github.com/mixu/) (или [Twitter](http://twitter.com/mikitotakada)). Автору приятно осознавать что книга имеет положительное влияние. "Создать большую ценность чем вы поглотили" и это все.
 
-Many many thanks to: logpath, alexras, globalcitizen, graue, frankshearar, roryokane, jpfuentes2, eeror, cmeiklejohn, stevenproctor eos2102 and steveloughran for their help! Of course, any mistakes and omissions that remain are my fault!
+Автор передает благодарности: logpath, alexras, globalcitizen, graue, frankshearar, roryokane, jpfuentes2, eeror, cmeiklejohn, stevenproctor eos2102 и steveloughran за их помощь! Автор также считает что все оставшиеся ошибки и неточности это его вина!
 
-It's worth noting that my chapter on eventual consistency is fairly Berkeley-centric; I'd like to change that. I've also skipped one prominent use case for time: consistent snapshots. There are also a couple of topics which I should expand on: namely, an explicit discussion of safety and liveness properties and a more detailed discussion of consistent hashing. However, I'm off to [Strange Loop 2013](https://thestrangeloop.com/), so whatever.
+Стоит отметить что глава о согласованности в конечном итоге получилась довольно Berkeley-центричной; Автор хотел бы это изменить. Была упущена одна из важных тем - создание снапшотов. Некотрые темы также стоит раскрыть подробнее: хотелось бы более явного обсуждения свойств живучести и корректности системы и более подробного описания устойчивого хеширования.
 
-If this book had a chapter 6, it would probably be about the ways in which one can make use of and deal with large amounts of data. It seems that the most common type of "big data" computation is one in which [a large dataset is passed through a single simple program](http://en.wikipedia.org/wiki/SPMD). I'm not sure what the subsequent chapters would be (perhaps high performance computing, given that the current focus has been on feasibility), but I'll probably know in a couple of years.
+Если бы в этой книге была 6 глава, то вероятно она бы была о том каким образом можно использовать и работать большие обьемы данных. Кажется что наиболее распространненым типом вычислений на больших данных является тот в котором [большой набор данных передается через одну простую программу](http://en.wikipedia.org/wiki/SPMD).
 
-## Books about distributed systems
+## Книги о распределенных системах
 
 #### Distributed Algorithms (Lynch)
 
-This is probably the most frequently recommended book on distributed algorithms. I'd also recommend it, but with a caveat. It is very comprehensive, but written for a graduate student audience, so you'll spend a lot of time reading about synchronous systems and shared memory algorithms before getting to things that are most interesting to a practitioner.
+Это скоре всего наиболее часто рекомендуемая книга о распределенных алгоритмах. Автор также рекомендует ее, но с оговоркой. Она очень комплексная, но написано для выпускников вузов, так что вы можете потратить много времени читая о синхронных системах и разделяемой памяти прежде чем начнутся вещи интересные для практиков.
 
 #### Introduction to Reliable and Secure Distributed Programming (Cachin, Guerraoui & Rodrigues)
 
-For a practitioner, this is a fun one. It's short and full of actual algorithm implementations.
+Для практика, книга - сплошное удовольствие. Это коротокое и полное описание реализаций современных алгоритмов|.
 
 #### Replication: Theory and Practice
 
-If you're interested in replication, this book is amazing. The chapter on replication is largely based on a synthesis of the interesting parts of this book plus more recent readings.
+Если вам интресна репликация, эта книга прекрасна. Глава о репликации во много основана на интересных частях этой книги+более поздних исследованиях.
 
 #### Distributed Systems: An Algorithmic Approach (Ghosh)
 
@@ -30,27 +30,27 @@ If you're interested in replication, this book is amazing. The chapter on replic
 
 #### Transactional Information Systems: Theory, Algorithms, and the Practice of Concurrency Control and Recovery (Weikum & Vossen)
 
-This book is on traditional transactional information systems, e.g. local RDBMS's. There are two chapters on distributed transactions at the end, but the focus of the book is on transaction processing.
+Эта книга о традиционных транзакционных системах, таких как нераспределенные РСУБД. Она содержит две главы о распределенных транзакциях, но основной упор в книге на традиционные транзакции.
 
 #### Transaction Processing: Concepts and Techniques by Gray and Reuter
 
-A classic. I find that Weikum & Vossen is more up to date.
+Класска. Но автор считает что предыдущая книга более современна.
 
-## Seminal papers
+## Основополагающие публикации
 
-Each year, the [Edsger W. Dijkstra Prize in Distributed Computing](http://en.wikipedia.org/wiki/Dijkstra_Prize) is given to outstanding papers on the principles of distributed computing. Check out the link for the full list, which includes classics such as:
+Каждый год, [Приз Эдгара Дейкстры в распределенном программировании](http://en.wikipedia.org/wiki/Dijkstra_Prize) дается выдающим работам в области распределенных вычислений. Ссылка включает полный список этих работ, включая такую классику как:
 
 - "[Time, Clocks and Ordering of Events in a Distributed System](http://research.microsoft.com/users/lamport/pubs/time-clocks.pdf)" - Leslie Lamport
 - "[Impossibility of Distributed Consensus With One Faulty Process](http://theory.lcs.mit.edu/tds/papers/Lynch/jacm85.pdf)" - Fisher, Lynch, Patterson
 - "[Unreliable failure detectors and reliable distributed systems](http://scholar.google.com/scholar?q=Unreliable+Failure+Detectors+for+Reliable+Distributed+Systems)" - Chandra and Toueg
 
-Microsoft Academic Search has a list of [top publications in distributed & parallel computing ordered by number of citations](http://libra.msra.cn/RankList?entitytype=1&topDomainID=2&subDomainID=16&last=0&start=1&end=100) - this may be an interesting list to skim for more classics.
+Microsoft Academic Search имеет список [лучших публикаций в распределенном программировании отсортированный по количеству цитат](http://libra.msra.cn/RankList?entitytype=1&topDomainID=2&subDomainID=16&last=0&start=1&end=100) - это может быть интресно если хочется зацепить больше классики.
 
-Here are some additional lists of recommended papers:
+Список дополтнительных публикаций:
 
-- [Nancy Lynch's recommended reading list](http://courses.csail.mit.edu/6.852/08/handouts/handout3.pdf) from her course on Distributed systems.
-- [NoSQL Summer paper list](http://nosqlsummer.org/papers) - a curated list of papers related to this buzzword.
-- [A Quora question on seminal papers in distributed systems](http://www.quora.com/What-are-the-seminal-papers-in-distributed-systems-Why).
+- [Nancy Lynch рекомендует эти публикации](http://courses.csail.mit.edu/6.852/08/handouts/handout3.pdf).
+- [NoSQL Summer список публикаций](http://nosqlsummer.org/papers) - список публикаций связанных с этим термином.
+- [Вопрос на Quora о основопологающих публикациях о распределенных системах](http://www.quora.com/What-are-the-seminal-papers-in-distributed-systems-Why).
 
 ### Systems
 
